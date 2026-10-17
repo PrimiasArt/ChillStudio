@@ -1,0 +1,106 @@
+<p align="center">
+  <img src="https://cdn.jsdelivr.net/gh/PrimiasArt/ChillStudio@main/assets/chillstudio-mark-dark.png" alt="Chill Studio" width="100" />
+</p>
+
+<h1 align="center">Chill Studio</h1>
+<h3 align="center">Il sostituto di CapCut gratuito, open source e multipiattaforma.</h3>
+
+<div align="center">
+
+<img src="https://cdn.jsdelivr.net/gh/PrimiasArt/ChillStudio@main/assets/editor.png" alt="Chill Studio editor" width="100%" />
+
+<p align="center">
+  <a href="https://github.com/PrimiasArt/ChillStudio/releases"><img src="https://img.shields.io/github/downloads/PrimiasArt/ChillStudio/total?style=flat&logo=github&logoColor=F8F8F8&label=Downloads&labelColor=212123&color=0568FD" alt="Total Downloads" /></a>
+  <a href="https://github.com/PrimiasArt/ChillStudio/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/PrimiasArt/ChillStudio/ci.yml?style=flat&logo=githubactions&logoColor=F8F8F8&label=Build&labelColor=000000" alt="Build Status" /></a>
+  <a href="https://github.com/PrimiasArt/ChillStudio/releases"><img src="https://img.shields.io/badge/Version-0.2.7-0568FD?style=flat&logo=semver&logoColor=F8F8F8&labelColor=212123" alt="Chill Studio Version 0.2.7" /></a>
+  <a href="https://discord.gg/DVuPfpXfqP"><img src="https://img.shields.io/badge/Discord-Join%20the%20server-5865F2?style=flat&logo=discord&logoColor=F8F8F8&labelColor=000000" alt="Join Chill Studio Discord" /></a>
+  <a href="../LICENSE"><img src="https://img.shields.io/badge/License-AGPL%20v3-0568FD?style=flat&logo=gnu&logoColor=F8F8F8&labelColor=212123" alt="License: AGPL-3.0-or-later" /></a>
+</p>
+
+<p align="center">
+  <a href="https://www.star-history.com/PrimiasArt/ChillStudio"><img src="https://api.star-history.com/badge?repo=PrimiasArt/ChillStudio&type=rank" alt="Star History Rank" height="62" /></a>
+  <a href="https://github.com/PrimiasArt/ChillStudio/releases"><img src="../assets/download_button.svg" alt="Download Chill Studio" width="251" /></a>
+</p>
+
+[🇬🇧 English](../README.md) · [🇩🇪 Deutsch](README.de.md) · [🇪🇸 Español](README.es.md) · [🇫🇷 Français](README.fr.md) · **🇮🇹 Italiano** · [🇳🇱 Nederlands](README.nl.md) · [🇵🇱 Polski](README.pl.md) · [🇧🇷 Português (Brasil)](README.pt-BR.md) · [🇷🇺 Русский](README.ru.md) · [🇺🇦 Українська](README.uk.md) · [🇹🇷 Türkçe](README.tr.md) · [🇭🇷 Hrvatski](README.hr.md) · [🇮🇩 Bahasa Indonesia](README.id.md) · [🇻🇳 Tiếng Việt](README.vi.md) · [🇹🇭 ไทย](README.th.md) · [🇯🇵 日本語](README.ja.md) · [🇰🇷 한국어](README.ko.md) · [🇨🇳 简体中文](README.zh-Hans.md) · [🇹🇼 繁體中文](README.zh-TW.md) · [🇸🇦 العربية](README.ar.md) · [🇮🇱 עברית](README.he.md) · [🇮🇷 فارسی](README.fa.md) · [🇮🇳 हिन्दी](README.hi.md) · [🇵🇰 اردو](README.ur.md) · [🇧🇩 বাংলা](README.bn.md)
+
+> Tradotto dal README inglese l’11 ottobre 2026. La versione inglese è quella tenuta aggiornata.
+
+</div>
+
+
+## Informazioni
+
+Chill Studio è un editor video gratuito e open source, un’alternativa a CapCut per macOS, Windows, Linux e Android. Copre ciò per cui la gente apre davvero CapCut: sottotitoli automatici, sintesi vocale, rimozione dello sfondo, animazione con fotogrammi chiave, effetti e titoli, montaggio multitraccia, esportazione 4K. Senza nessuna fregatura: niente filigrana, niente account, niente abbonamento, niente caricamenti.
+
+Tutto gira in locale su un motore nativo in Rust con un compositore su GPU. Installalo, trascina il girato, taglia. I modelli di IA per sottotitoli, voci e scontorno si scaricano una volta dalle Impostazioni e poi funzionano offline. Il tuo girato non lascia mai il tuo disco.
+
+**Adatto a:** TikTok, Reels e Shorts, video YouTube, tutorial e registrazioni dello schermo, clip di podcast, meme.
+
+**Anche per le macchine:** un’API JSON-RPC, così anche script e agenti IA possono montare video con ChillStudio.
+
+## In evidenza
+
+- 🚫 **Niente filigrane. Niente account. Niente paywall.** Mai.
+- 🔒 **100 % locale.** Niente viene caricato. Funziona offline.
+- 💬 **Sottotitoli automatici.** Whisper in locale. Scegli la dimensione del modello e ottieni sottotitoli stilizzati sulla timeline.
+- 🗣️ **Sintesi vocale + clonazione della voce.** Voci locali gratuite, o qualsiasi voce da pochi secondi di registrazione.
+- 🧍 **Rimozione dello sfondo.** Persone, oggetti, o dipingi la maschera tu stesso.
+- 🎞️ **Fotogrammi chiave.** Posizione, scala, rotazione, opacità, volume, parametri degli effetti. Editor di curve integrato.
+- ✨ **100 effetti, filtri e transizioni.** Resi dalla GPU, dal vivo nell’anteprima.
+- ✂️ **Taglia in fretta.** Dividi, rifila, ripple, unisci, fermo immagine, velocità. Timeline magnetica se la vuoi.
+- 🎚️ **Multitraccia, multi-timeline.** Più montaggi in un progetto. Metodi di fusione, ritaglio, ribaltamenti.
+- 📝 **Titoli.** Font, contorno, ombra, placca di sfondo. Preset da cui partire.
+- 🎙️ **Pulizia della voce con un interruttore.** Riduci il rumore, migliora la voce, livella il volume. Più scoiattolo, robot, telefono e compagnia.
+- 📤 **Esportazione.** H.264, HEVC, AV1. Fino a 4K 60, colore a 10 bit.
+- 🦀 **Motore nativo in Rust.** Compositore su GPU, proxy, decodifica hardware. Il 4K scorre fluido.
+- 🤖 **Scriptabile.** Un’API JSON-RPC con cui script e agenti IA possono montare video. Compilando dai sorgenti si aggiungono gRPC e uno strumento da riga di comando.
+- 🖥️ **macOS, Windows, Linux, Android.** 25 lingue. Stessa app, stessi file di progetto.
+
+## Download
+
+Due strade:
+
+1. **[Il sito web](https://primiasart.github.io/ChillStudio/)** ti dà la build giusta per la tua macchina. Parti da qui.
+2. **[GitHub Releases](https://github.com/PrimiasArt/ChillStudio/releases)** ha ogni build per ogni piattaforma, con installer, pacchetti e checksum. Per quando vuoi scegliere.
+
+Chill Studio è in **beta**: funziona, e ha ancora qualche spigolo. [Segnalalo](https://github.com/PrimiasArt/ChillStudio/issues) quando ne trovi uno.
+
+**Piattaforme**
+
+- ✅ **Windows** · x86_64 (le build ARM sono in pausa, vedi [#326](https://github.com/PrimiasArt/ChillStudio/issues/326)). Un setup e un `.msi`. Se SmartScreen blocca una build non firmata: **Ulteriori informazioni** › **Esegui comunque**
+- ✅ **macOS** · Intel e Apple Silicon. Se macOS si rifiuta di aprire una build non firmata: `xattr -dr com.apple.quarantine /Applications/ChillStudio.app`
+- ✅ **Linux** · x86_64 e ARM. `.deb`, `.rpm`, `.AppImage` e un pacchetto Arch. Anche un Flatpak su **[Flatpark](https://flatpark.org/apps/app.chillstudio.editor/)**, un remote Flatpak della community che impacchetta il `.deb` x86_64 di ogni versione e si aggiorna con essa
+- ✅ **Android** · telefoni e tablet
+- ✅ **iOS / iPadOS** · iPhone e iPad, con sideload
+
+✅ Supportato · 🚧 In lavorazione · 🧪 Da testare
+
+I **requisiti di sistema** e le dimensioni dei modelli opzionali sono sul [sito web](https://github.com/PrimiasArt/ChillStudio#system-requirements).
+
+**[Code signing policy](../CODE_SIGNING.md)**
+
+## Come contribuire
+
+> [!IMPORTANT]
+> Il modo migliore per contribuire è prendere una build dalla pagina [Releases](https://github.com/PrimiasArt/ChillStudio/releases) e usarla: trova dove si rompe, e di’ dove potrebbe essere migliore.
+>
+> Pronto a scrivere codice? [CONTRIBUTING.md](../CONTRIBUTING.md) copre la configurazione, la struttura dell’albero, i controlli da eseguire e come vengono licenziati i contributi. Guidi Chill Studio da uno script, un servizio o un agente? [La documentazione per sviluppatori](https://github.com/PrimiasArt/ChillStudio/tree/main/docs) copre l’API di Chill Studio e i suoi trasporti: JSON-RPC e gRPC. [Questa Discussion](https://github.com/PrimiasArt/ChillStudio/discussions/3) è dove il progetto è stato annunciato.
+> 
+> I contributori possono ottenere un ruolo `@Contributor` sul server Discord: basta chiederlo.
+
+## Storico delle stelle
+
+<a href="https://www.star-history.com/?repos=PrimiasArt%2FChillStudio&type=date&releases=&legend=bottom-right">
+ <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=PrimiasArt/ChillStudio&type=date&legend=bottom-right" />
+</a>
+
+## Contributori
+
+<a href="https://github.com/PrimiasArt/ChillStudio/graphs/contributors">
+  <img alt="Contributors" src="https://contrib.rocks/image?repo=PrimiasArt/ChillStudio">
+</a>
+
+## DMCA
+
+Se ritieni che qualcosa in questo repository, nelle sue release o in un pacchetto o modello che distribuisce violi il tuo diritto d’autore, scrivi a [GitHub Issues](https://github.com/PrimiasArt/ChillStudio/issues) indicando una descrizione dell’opera di cui sei titolare, un link al punto in cui il materiale contestato compare qui, i tuoi recapiti, una dichiarazione in cui affermi di ritenere in buona fede che l’uso non sia autorizzato da te, dal tuo rappresentante o dalla legge, e una dichiarazione, sotto pena di spergiuro, che la segnalazione è accurata e che sei il titolare o sei autorizzato ad agire per suo conto, con la tua firma autografa o elettronica. Le segnalazioni valide vengono gestite tempestivamente, e chiunque si veda rimuovere del materiale può inviare una contro-notifica allo stesso indirizzo.

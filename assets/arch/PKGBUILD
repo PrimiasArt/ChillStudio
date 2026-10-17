@@ -1,0 +1,29 @@
+# Maintainer: noxygalaxy <noxycraftyt@gmail.com>
+pkgname=chillstudio
+pkgver=${CHILLSTUDIO_VERSION:?CHILLSTUDIO_VERSION must be set}
+pkgrel=1
+pkgdesc="ChillStudio — Free and open source video editor"
+arch=('x86_64' 'aarch64')
+url="https://github.com/PrimiasArt/ChillStudio"
+license=('AGPL-3.0-or-later')
+depends=('glibc' 'gtk3' 'fontconfig' 'freetype2' 'libxkbcommon' 'mesa' 'alsa-lib')
+options=('!strip' '!debug')
+source=()
+
+stage=${CHILLSTUDIO_STAGE:?CHILLSTUDIO_STAGE must point at the staged folder}
+
+package() {
+  install -Dm755 "$stage/chillstudio" "$pkgdir/opt/chillstudio/chillstudio"
+  install -d "$pkgdir/opt/chillstudio/lib"
+  cp -a "$stage"/lib/. "$pkgdir/opt/chillstudio/lib/"
+
+  install -d "$pkgdir/usr/bin"
+  printf '#!/bin/sh\nexec /opt/chillstudio/chillstudio "$@"\n' > "$pkgdir/usr/bin/chillstudio"
+  chmod 755 "$pkgdir/usr/bin/chillstudio"
+  install -Dm644 "$stage/chillstudio.desktop" "$pkgdir/usr/share/applications/chillstudio.desktop"
+  sed -i 's|^Exec=chillstudio|Exec=/opt/chillstudio/chillstudio %U|' "$pkgdir/usr/share/applications/chillstudio.desktop"
+  install -Dm644 "$stage/chillstudio.png" "$pkgdir/usr/share/icons/hicolor/256x256/apps/chillstudio.png"
+
+  install -Dm644 "$stage/LICENSE" "$pkgdir/usr/share/licenses/chillstudio/LICENSE"
+  install -Dm644 "$stage/THIRD_PARTY_NOTICES.md" "$pkgdir/usr/share/licenses/chillstudio/THIRD_PARTY_NOTICES.md"
+}

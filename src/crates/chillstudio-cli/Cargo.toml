@@ -1,0 +1,34 @@
+[package]
+name = "chillstudio-cli"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Command line driver for the ChillStudio engine."
+
+# `chillstudio` is the editor window's binary; the driver gets the suffix.
+[[bin]]
+name = "chillstudio-cli"
+path = "src/main.rs"
+
+[dependencies]
+chillstudio-core.workspace = true
+chillstudio-media.workspace = true
+chillstudio-render.workspace = true
+# The `api` command: the ChillStudio API over stdin and stdout. The `serve`
+# command: the same on a socket.
+chillstudio-api.workspace = true
+chillstudio-server.workspace = true
+serde_json.workspace = true
+# `preview` draws one effect's card, as the window does; `check` loads
+# packages and runs their probes.
+chillstudio-effects.workspace = true
+chillstudio-host.workspace = true
+clap.workspace = true
+
+[features]
+# `serve --grpc`. Off by default; see chillstudio-server.
+grpc = ["chillstudio-server/grpc"]
+
+[lints]
+workspace = true
