@@ -1,0 +1,17 @@
+id = "chillstudio.tiktok-viral"
+name = "TikTok Viral"
+language = "Latin"
+order = 2
+offsetY = 0.28
+sample = "Aa"
+
+[style]
+content = "PHỤ ĐỀ NỔI BẬT"
+fontFamily = "Hanken Grotesk"
+fontWeight = 800
+fontSize = 0.072
+color = "#ffd60a"
+strokeColor = "#000000"
+strokeWidth = 0.015
+shadow = true
+align = "center"

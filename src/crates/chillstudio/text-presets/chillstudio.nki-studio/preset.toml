@@ -1,0 +1,19 @@
+id = "chillstudio.nki-studio"
+name = "NKI Studio"
+language = "Latin"
+order = 1
+sample = "NKI"
+
+[style]
+content = "NKI STUDIO"
+fontFamily = "Hanken Grotesk"
+fontWeight = 700
+fontSize = 0.065
+color = "#062412"
+background = "#38ef7d"
+backgroundRadius = 0.28
+backgroundPaddingX = 0.42
+backgroundPaddingY = 0.22
+tracking = 0.04
+shadow = true
+align = "center"

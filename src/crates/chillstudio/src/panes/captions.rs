@@ -178,21 +178,41 @@ impl CaptionsPane {
                         };
                         let look = subject.look;
                         let base = studio.prefs.title_style.clone();
-                        let commands: Vec<Command> = segments
-                            .into_iter()
-                            .filter_map(|segment| {
-                                let text = segment.text.trim().to_owned();
-                                (!text.is_empty()).then(|| {
-                                    caption_clip(
-                                        text,
-                                        subject.start + segment.start / subject.speed,
-                                        ((segment.end - segment.start) / subject.speed).max(0.2),
-                                        look,
-                                        base.as_ref(),
-                                    )
+                        let lower_hint = self.text.to_lowercase();
+                        let word_mode =
+                            lower_hint.contains("[tiktok]") || lower_hint.contains("[word]");
+                        let commands: Vec<Command> = if word_mode {
+                            let raw: Vec<(f64, f64, String)> = segments
+                                .into_iter()
+                                .map(|s| (s.start, s.end, s.text))
+                                .collect();
+                            chillstudio_project::smart::word_caption_commands(
+                                &raw,
+                                subject.start,
+                                subject.speed,
+                                3,
+                                look.0,
+                                look.1,
+                                base.as_ref(),
+                            )
+                        } else {
+                            segments
+                                .into_iter()
+                                .filter_map(|segment| {
+                                    let text = segment.text.trim().to_owned();
+                                    (!text.is_empty()).then(|| {
+                                        caption_clip(
+                                            text,
+                                            subject.start + segment.start / subject.speed,
+                                            ((segment.end - segment.start) / subject.speed)
+                                                .max(0.2),
+                                            look,
+                                            base.as_ref(),
+                                        )
+                                    })
                                 })
-                            })
-                            .collect();
+                                .collect()
+                        };
                         let count = commands.len();
                         self.open = false;
                         if count == 0 {
@@ -245,8 +265,19 @@ impl CaptionsPane {
         )
     }
 
-    /// The script as titles, one after another from the playhead.
+    /// The script as titles, one after another from the playhead — or, when
+    /// prefixed with `/` or `[tiktok]` / `[word]`, an NKI AI Copilot / Smart
+    /// Cut command.
     fn run_script(&mut self, studio: &mut Studio) {
+        let trimmed = self.text.trim();
+        if (trimmed.starts_with('/')
+            || trimmed.to_lowercase().starts_with("[tiktok]")
+            || trimmed.to_lowercase().starts_with("[word]"))
+            && let Some(action) = chillstudio_project::smart::parse_copilot_prompt(trimmed)
+        {
+            self.run_copilot_action(studio, action);
+            return;
+        }
         let lines = script_captions(&self.text);
         if lines.is_empty() {
             self.message = t("captions.nothingToCaptionYet");
@@ -267,6 +298,116 @@ impl CaptionsPane {
         self.open = false;
         studio.apply(Command::Batch { commands });
         studio.notify(&tf("captions.addedCaptions", &[&count]), false);
+    }
+
+    /// Executes a parsed [`chillstudio_project::smart::CopilotAction`] against
+    /// the current project, decoding audio on the fly for Smart Silence Cut and
+    /// Auto Beat Sync.
+    fn run_copilot_action(
+        &mut self,
+        studio: &mut Studio,
+        action: chillstudio_project::smart::CopilotAction,
+    ) {
+        use chillstudio_project::smart::{
+            CopilotAction, beat_split_commands, copilot_timeline_commands, find_beat_times,
+            find_silent_spans, remove_silence_commands,
+        };
+        let commands = match &action {
+            CopilotAction::RemoveSilence {
+                threshold_db,
+                min_silence_secs,
+            } => {
+                let target_id = self
+                    .clip
+                    .clone()
+                    .or_else(|| sources(studio).first().map(|s| s.id.clone()));
+                let Some(clip) = target_id.and_then(|id| studio.clip(&id).cloned()) else {
+                    self.message = t("captions.clipNoLongerTimeline");
+                    return;
+                };
+                let Some(media) = studio.project().media_by_id(&clip.media_id).cloned() else {
+                    self.message = t("captions.clipHasNoFile");
+                    return;
+                };
+                let opts = chillstudio_media::AudioOptions {
+                    start: Some(clip.source_start),
+                    duration: Some(clip.duration * clip.speed),
+                    filters: Vec::new(),
+                    rate: 16_000,
+                    channels: 1,
+                    format: chillstudio_media::SampleFormat::F32,
+                    stream: clip.audio_stream.map(|s| s as usize),
+                };
+                let samples = match chillstudio_media::AudioDecoder::open(&media.path, &opts)
+                    .and_then(|mut dec| dec.collect_f32())
+                {
+                    Ok(samples) => samples,
+                    Err(err) => {
+                        self.message = err.to_string();
+                        return;
+                    }
+                };
+                let spans = find_silent_spans(
+                    &samples,
+                    16_000,
+                    1,
+                    *threshold_db,
+                    *min_silence_secs,
+                    0.06,
+                );
+                remove_silence_commands(&clip.id, clip.start, clip.duration, clip.speed, &spans)
+            }
+            CopilotAction::BeatSync { sensitivity } => {
+                let target_id = self
+                    .clip
+                    .clone()
+                    .or_else(|| sources(studio).first().map(|s| s.id.clone()));
+                let Some(clip) = target_id.and_then(|id| studio.clip(&id).cloned()) else {
+                    self.message = t("captions.clipNoLongerTimeline");
+                    return;
+                };
+                let Some(media) = studio.project().media_by_id(&clip.media_id).cloned() else {
+                    self.message = t("captions.clipHasNoFile");
+                    return;
+                };
+                let opts = chillstudio_media::AudioOptions {
+                    start: Some(clip.source_start),
+                    duration: Some(clip.duration * clip.speed),
+                    filters: Vec::new(),
+                    rate: 16_000,
+                    channels: 1,
+                    format: chillstudio_media::SampleFormat::F32,
+                    stream: clip.audio_stream.map(|s| s as usize),
+                };
+                let samples = match chillstudio_media::AudioDecoder::open(&media.path, &opts)
+                    .and_then(|mut dec| dec.collect_f32())
+                {
+                    Ok(samples) => samples,
+                    Err(err) => {
+                        self.message = err.to_string();
+                        return;
+                    }
+                };
+                let beats = find_beat_times(&samples, 16_000, 1, 0.25, *sensitivity);
+                beat_split_commands(
+                    std::slice::from_ref(&clip.id),
+                    clip.start,
+                    clip.duration,
+                    clip.speed,
+                    &beats,
+                )
+            }
+            other => copilot_timeline_commands(studio.project(), other, f64::from(studio.playhead)),
+        };
+
+        let count = commands.len();
+        self.open = false;
+        if count > 0 {
+            studio.apply(Command::Batch { commands });
+            studio.notify(&tf("captions.addedCaptions", &[&count]), false);
+        } else {
+            studio.notify(&t("captions.nothingSaidClip"), true);
+        }
     }
 
     /// The sheet's clip through the transcriber on a worker, reporting into

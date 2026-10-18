@@ -356,6 +356,37 @@ impl Api {
                     None => Ok(Reply::Picture(self.picture(&path, time, size)?)),
                 }
             }
+            Request::ExportSubtitles {
+                path,
+                output,
+                format,
+            } => {
+                self.writable(&output)?;
+                let timeline = self.session(&path)?.project().active().clone();
+                let is_vtt = format
+                    .as_deref()
+                    .is_some_and(|f| f.eq_ignore_ascii_case("vtt"))
+                    || output.to_lowercase().ends_with(".vtt");
+                let text = if is_vtt {
+                    chillstudio_project::smart::export_vtt(&timeline)
+                } else {
+                    chillstudio_project::smart::export_srt(&timeline)
+                };
+                std::fs::write(&output, text).map_err(ApiError::failed)?;
+                Ok(Reply::Written(Written { path: output }))
+            }
+            Request::CopilotRun { path, prompt } => {
+                let Some(action) = chillstudio_project::smart::parse_copilot_prompt(&prompt) else {
+                    return Err(ApiError::new(
+                        ErrorCode::Invalid,
+                        format!("Could not parse NKI Copilot command: {prompt}"),
+                    ));
+                };
+                let project = self.session(&path)?.project().clone();
+                let commands =
+                    chillstudio_project::smart::copilot_timeline_commands(&project, &action, 0.0);
+                view(self.apply(&path, Command::Batch { commands })?)
+            }
         }
     }
 

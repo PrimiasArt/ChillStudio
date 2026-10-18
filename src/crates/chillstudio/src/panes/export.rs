@@ -196,6 +196,16 @@ impl ExportPane {
                 self.phase = ExportPhase::Done;
                 self.progress = 1.0;
                 self.written = written.clone();
+                // Pro Workflow: automatically write companion .srt and .vtt
+                // subtitle files alongside the exported video when the active
+                // timeline carries visible titles/captions.
+                let srt = chillstudio_project::smart::export_srt(studio.timeline());
+                if !srt.is_empty() {
+                    let video_path = std::path::Path::new(&written);
+                    let _ = std::fs::write(video_path.with_extension("srt"), &srt);
+                    let vtt = chillstudio_project::smart::export_vtt(studio.timeline());
+                    let _ = std::fs::write(video_path.with_extension("vtt"), &vtt);
+                }
                 // A phone moves the file to where its gallery shows it, and
                 // the sheet says "finished" once it is there.
                 let handed = platform::publish_export(written.into(), |result| {

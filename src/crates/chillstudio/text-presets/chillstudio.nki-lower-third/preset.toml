@@ -1,0 +1,19 @@
+id = "chillstudio.nki-lower-third"
+name = "NKI Lower Third"
+language = "Latin"
+order = 3
+offsetY = 0.34
+sample = "NKI"
+
+[style]
+content = "Chill Studio · Hệ sinh thái NKI"
+fontFamily = "Hanken Grotesk"
+fontWeight = 600
+fontSize = 0.048
+color = "#38ef7d"
+background = "#0b1f15"
+backgroundRadius = 0.18
+backgroundPaddingX = 0.36
+backgroundPaddingY = 0.20
+shadow = true
+align = "left"

@@ -234,6 +234,32 @@ pub enum Request {
         #[serde(default)]
         height: Option<u32>,
     },
+
+    /// Writes the active timeline's visible text clips as a SubRip (`.srt`)
+    /// or WebVTT (`.vtt`) subtitle file to `output`.
+    #[serde(rename = "export.subtitles")]
+    ExportSubtitles {
+        /// The project folder.
+        path: String,
+        /// The subtitle file to write (`.srt` or `.vtt`).
+        output: String,
+        /// Optional explicit format (`"srt"` or `"vtt"`). Inferred from
+        /// `output` extension when absent.
+        #[serde(default)]
+        format: Option<String>,
+    },
+
+    /// Parses and applies a natural-language Vietnamese or English NKI AI
+    /// Copilot command (`SmartReframe`, `SetSpeedAll`, `RemoveGaps`,
+    /// `AddWordCaptions`) as an undoable batch on the active timeline.
+    #[serde(rename = "copilot.run")]
+    CopilotRun {
+        /// The project folder.
+        path: String,
+        /// Natural language instruction (e.g. `"chuyển sang khung dọc 9:16"`,
+        /// `"tăng tốc 1.5x"`, `"[tiktok] Xin chào Chill Studio"`).
+        prompt: String,
+    },
 }
 
 /// One template slot and the file that takes it.
