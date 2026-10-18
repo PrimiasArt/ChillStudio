@@ -50,9 +50,10 @@ use crate::error::Result;
 use crate::probe;
 
 /// How far ahead of a reader's position a request may be and still be worth
-/// decoding forward to, rather than seeking. Two seconds of 30fps material is
-/// sixty decodes - comparable to a seek, and exact.
-const ROLL_FORWARD_FRAMES: i64 = 60;
+/// decoding forward to, rather than seeking. One and a half seconds of 60fps
+/// (or three seconds of 30fps) material is ninety decodes - comparable to a
+/// long-GOP seek, and exact.
+const ROLL_FORWARD_FRAMES: i64 = 90;
 
 /// What one frame request asks for; see [`ReaderPool::frame`].
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
@@ -206,15 +207,15 @@ struct TreatedKey {
 
 /// A byte-budgeted LRU of decoded frames.
 ///
-/// Plain and measurable on purpose: a `HashMap` plus a logical clock, evicting
-/// the least-recently-touched frame until the budget holds. At preview sizes a
-/// frame is ~2-4 MB, so the default budget holds a few hundred frames - many
-/// seconds of scrub history.
+/// Uses a `HashMap` paired with a `BTreeMap<u64, K>` logical-clock index so
+/// evicting the least-recently-touched frame is `O(log N)` (`pop_first`)
+/// rather than an `O(N)` scan over every cached frame.
 pub struct FrameCache<K> {
     budget: usize,
     held: usize,
     tick: u64,
     frames: HashMap<K, (Arc<Frame>, u64)>,
+    order: std::collections::BTreeMap<u64, K>,
 }
 
 impl<K: Hash + Eq + Clone> FrameCache<K> {
@@ -225,16 +226,22 @@ impl<K: Hash + Eq + Clone> FrameCache<K> {
             held: 0,
             tick: 0,
             frames: HashMap::new(),
+            order: std::collections::BTreeMap::new(),
         }
     }
 
     fn get(&mut self, key: &K) -> Option<Arc<Frame>> {
         self.tick += 1;
         let tick = self.tick;
-        self.frames.get_mut(key).map(|(frame, touched)| {
+        if let Some((frame, touched)) = self.frames.get_mut(key) {
+            let old_tick = *touched;
             *touched = tick;
-            Arc::clone(frame)
-        })
+            self.order.remove(&old_tick);
+            self.order.insert(tick, key.clone());
+            Some(Arc::clone(frame))
+        } else {
+            None
+        }
     }
 
     fn insert(&mut self, key: K, frame: Arc<Frame>) {
@@ -245,17 +252,15 @@ impl<K: Hash + Eq + Clone> FrameCache<K> {
             return;
         }
         self.tick += 1;
-        if let Some((previous, _)) = self.frames.insert(key, (frame, self.tick)) {
+        let tick = self.tick;
+        if let Some((previous, old_tick)) = self.frames.insert(key.clone(), (frame, tick)) {
             self.held -= previous.pixels().len();
+            self.order.remove(&old_tick);
         }
+        self.order.insert(tick, key);
         self.held += bytes;
         while self.held > self.budget {
-            let Some(oldest) = self
-                .frames
-                .iter()
-                .min_by_key(|(_, (_, touched))| *touched)
-                .map(|(key, _)| key.clone())
-            else {
+            let Some((_, oldest)) = self.order.pop_first() else {
                 break;
             };
             if let Some((evicted, _)) = self.frames.remove(&oldest) {
@@ -273,8 +278,9 @@ impl<K: Hash + Eq + Clone> FrameCache<K> {
             .cloned()
             .collect();
         for key in gone {
-            if let Some((frame, _)) = self.frames.remove(&key) {
+            if let Some((frame, old_tick)) = self.frames.remove(&key) {
                 self.held -= frame.pixels().len();
+                self.order.remove(&old_tick);
             }
         }
     }
@@ -570,24 +576,23 @@ impl ReaderPool {
     }
 
     /// The frame cache a machine with `total_memory` bytes of RAM gets: a
-    /// sixteenth of it, between 256 MB and 1 GB - 512 MB on an 8 GB
-    /// machine, a gigabyte from 16 GB up. A fixed 512 MB was a sixteenth of
-    /// a small laptop's memory and a thirtieth of an editing workstation's.
+    /// sixteenth of it, between 256 MB and 2 GB - 512 MB on an 8 GB
+    /// machine, a gigabyte on 16 GB, and two gigabytes from 32 GB up.
     /// Unknown memory gets the 512 MB the pool always had.
     pub fn frame_budget(total_memory: Option<u64>) -> usize {
         const MB: u64 = 1024 * 1024;
         let bytes = match total_memory {
-            Some(total) => (total / 16).clamp(256 * MB, 1024 * MB),
+            Some(total) => (total / 16).clamp(256 * MB, 2048 * MB),
             None => 512 * MB,
         };
         usize::try_from(bytes).unwrap_or(usize::MAX)
     }
 
     /// A pool sized for a machine with `total_memory` bytes of RAM; see
-    /// [`ReaderPool::frame_budget`]. Eight warm readers at most, and those
+    /// [`ReaderPool::frame_budget`]. Twelve warm readers at most, and those
     /// not asked for in a while are closed by [`ReaderPool::close_idle`].
     pub fn sized_for(total_memory: Option<u64>) -> Self {
-        Self::new(Self::frame_budget(total_memory), 8)
+        Self::new(Self::frame_budget(total_memory), 12)
     }
 
     /// Closes the warm readers nobody has asked for in `idle`, and that no
@@ -1424,7 +1429,7 @@ pub(crate) mod tests {
         assert_eq!(mb(ReaderPool::frame_budget(Some(2 * GB))), 256);
         assert_eq!(mb(ReaderPool::frame_budget(Some(8 * GB))), 512);
         assert_eq!(mb(ReaderPool::frame_budget(Some(16 * GB))), 1024);
-        assert_eq!(mb(ReaderPool::frame_budget(Some(128 * GB))), 1024);
+        assert_eq!(mb(ReaderPool::frame_budget(Some(128 * GB))), 2048);
         assert_eq!(mb(ReaderPool::frame_budget(None)), 512);
     }
 

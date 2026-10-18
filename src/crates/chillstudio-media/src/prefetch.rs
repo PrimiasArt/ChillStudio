@@ -31,9 +31,9 @@ use chillstudio_core::frame::Frame;
 use crate::pool::{FrameRequest, ReaderPool};
 
 /// How many frame instants the prefetcher decodes ahead of the cursor.
-/// A quarter of a second at thirty: enough that a decode never lands
-/// after its frame is due, small enough that a seek wastes little.
-pub const AHEAD: u32 = 8;
+/// Enough that a 60fps decode never lands after its frame is due, while
+/// keeping seek waste low.
+pub const AHEAD: u32 = 12;
 
 /// How far a cursor may move on from the last one, in its own direction
 /// and at its own rate, and still be the same playback: its queue is kept
@@ -237,12 +237,12 @@ impl Prefetcher {
         Self::new(pool, Self::default_workers())
     }
 
-    /// How many decoders run at once: a quarter of the machine's threads,
-    /// two at least and four at most. A decoder is single-threaded on the
+    /// How many decoders run at once: a third of the machine's threads,
+    /// two at least and eight at most. A decoder is single-threaded on the
     /// walk from a keyframe, so this is roughly the share of the machine
     /// decoding may take while the window and the mix keep the rest.
     pub fn default_workers() -> usize {
-        std::thread::available_parallelism().map_or(2, |threads| (threads.get() / 4).clamp(2, 4))
+        std::thread::available_parallelism().map_or(2, |threads| (threads.get() / 3).clamp(2, 8))
     }
 
     /// The pool the frames land in.
@@ -748,7 +748,11 @@ mod tests {
             .map(|time| (time * fps).round() as i64)
             .collect();
         held.sort_unstable();
-        assert_eq!(held, (4..=13).collect::<Vec<_>>(), "each held once");
+        assert_eq!(
+            held,
+            (4..=5 + i64::from(AHEAD)).collect::<Vec<_>>(),
+            "each held once"
+        );
 
         // A cursor far ahead: nothing held behind it survives, and an
         // instant queued for it that it has already passed is skipped -

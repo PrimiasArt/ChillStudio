@@ -387,7 +387,7 @@ impl Transcriber {
             .map_err(|error| format!("could not start whisper: {error}"))?;
 
         let threads = std::thread::available_parallelism()
-            .map(|count| count.get().min(8))
+            .map(|count| (count.get() * 3 / 4).clamp(4, 16))
             .unwrap_or(4);
         let mut params = FullParams::new(SamplingStrategy::Greedy { best_of: 1 });
         params.set_n_threads(threads as i32);

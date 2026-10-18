@@ -333,7 +333,7 @@ impl CaptionsPane {
                     start: Some(clip.source_start),
                     duration: Some(clip.duration * clip.speed),
                     filters: Vec::new(),
-                    rate: 16_000,
+                    rate: 8_000,
                     channels: 1,
                     format: chillstudio_media::SampleFormat::F32,
                     stream: clip.audio_stream.map(|s| s as usize),
@@ -349,7 +349,7 @@ impl CaptionsPane {
                 };
                 let spans = find_silent_spans(
                     &samples,
-                    16_000,
+                    8_000,
                     1,
                     *threshold_db,
                     *min_silence_secs,
@@ -374,7 +374,7 @@ impl CaptionsPane {
                     start: Some(clip.source_start),
                     duration: Some(clip.duration * clip.speed),
                     filters: Vec::new(),
-                    rate: 16_000,
+                    rate: 8_000,
                     channels: 1,
                     format: chillstudio_media::SampleFormat::F32,
                     stream: clip.audio_stream.map(|s| s as usize),
@@ -388,7 +388,7 @@ impl CaptionsPane {
                         return;
                     }
                 };
-                let beats = find_beat_times(&samples, 16_000, 1, 0.25, *sensitivity);
+                let beats = find_beat_times(&samples, 8_000, 1, 0.25, *sensitivity);
                 beat_split_commands(
                     std::slice::from_ref(&clip.id),
                     clip.start,
