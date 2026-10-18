@@ -159,22 +159,20 @@ pub fn find_silent_spans(
         let sum_sq: f32 = slice.iter().map(|&s| s * s).sum();
         let rms = (sum_sq / count.max(1) as f32).sqrt();
         let t_start = frame as f64 / sample_rate as f64;
-        let t_end = end_frame as f64 / sample_rate as f64;
 
         if rms < linear_threshold {
             if silent_start.is_none() {
                 silent_start = Some(t_start);
             }
-        } else if let Some(s0) = silent_start.take() {
-            if t_start - s0 >= min_dur {
-                let padded_start = s0 + pad;
-                let padded_end = t_start - pad;
-                if padded_end - padded_start >= ranges::MIN_CLIP_DURATION * 2.0 {
-                    spans.push((padded_start, padded_end));
-                }
+        } else if let Some(s0) = silent_start.take()
+            && t_start - s0 >= min_dur
+        {
+            let padded_start = s0 + pad;
+            let padded_end = t_start - pad;
+            if padded_end - padded_start >= ranges::MIN_CLIP_DURATION * 2.0 {
+                spans.push((padded_start, padded_end));
             }
         }
-        let _ = t_end;
         frame = end_frame;
     }
 
@@ -474,20 +472,38 @@ pub fn smart_reframe_commands(
 #[derive(Clone, PartialEq, Debug)]
 pub enum CopilotAction {
     /// Reframe the active timeline and auto-fill visual clips (e.g. 9:16, 1:1, 16:9).
-    SmartReframe { width: u32, height: u32 },
+    SmartReframe {
+        /// Target frame width in pixels.
+        width: u32,
+        /// Target frame height in pixels.
+        height: u32,
+    },
     /// Change playback speed on all media clips in the active timeline.
-    SetSpeedAll { speed: f64 },
+    SetSpeedAll {
+        /// Playback speed multiplier.
+        speed: f64,
+    },
     /// Close gaps between sequential clips on every track.
     RemoveGaps,
     /// Auto-cut silent segments from audio/video clips.
     RemoveSilence {
+        /// Silence RMS threshold in dBFS (e.g. `-38.0`).
         threshold_db: f32,
+        /// Minimum silence duration in seconds before cutting.
         min_silence_secs: f64,
     },
     /// Split clips on detected musical beats.
-    BeatSync { sensitivity: f32 },
+    BeatSync {
+        /// Onset detection sensitivity multiplier.
+        sensitivity: f32,
+    },
     /// Add TikTok pop-in word-by-word captions starting at the playhead.
-    AddWordCaptions { text: String, max_words: usize },
+    AddWordCaptions {
+        /// Script text to split into short word groups.
+        text: String,
+        /// Maximum number of words per pop-in title clip.
+        max_words: usize,
+    },
 }
 
 /// Parses a natural-language Vietnamese or English command (with or without a

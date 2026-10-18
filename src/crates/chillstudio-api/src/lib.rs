@@ -372,8 +372,12 @@ impl Api {
                 } else {
                     chillstudio_project::smart::export_srt(&timeline)
                 };
-                std::fs::write(&output, text).map_err(ApiError::failed)?;
-                Ok(Reply::Written(Written { path: output }))
+                std::fs::write(&output, text).map_err(|err| ApiError::failed(err.to_string()))?;
+                Ok(Reply::Written(Written {
+                    path: output,
+                    width: timeline.video.width,
+                    height: timeline.video.height,
+                }))
             }
             Request::CopilotRun { path, prompt } => {
                 let Some(action) = chillstudio_project::smart::parse_copilot_prompt(&prompt) else {
