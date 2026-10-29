@@ -308,7 +308,10 @@ mod tests {
             })
             .expect("applies effect");
         let flat = flatten_timeline(editor.project(), None);
-        assert_eq!(flat[0].effects, vec![AppliedFilter::new("chillstudio.mono")]);
+        assert_eq!(
+            flat[0].effects,
+            vec![AppliedFilter::new("chillstudio.mono")]
+        );
     }
 
     #[test]

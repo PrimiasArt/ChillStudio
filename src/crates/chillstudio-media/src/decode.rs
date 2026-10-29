@@ -584,6 +584,7 @@ pub struct Decoder {
     /// The source frame the pacer is showing, and the one after it.
     current: Option<Source>,
     pending: Option<Source>,
+    pending_packet: Option<ffmpeg::Packet>,
     source_done: bool,
     produced: u64,
     position: Option<Rational>,
@@ -695,6 +696,7 @@ impl Decoder {
             origin: Rational::ZERO,
             current: None,
             pending: None,
+            pending_packet: None,
             source_done: false,
             produced: 0,
             position: None,
@@ -719,6 +721,7 @@ impl Decoder {
     ) -> Result<(decoder::Video, Option<(HwDevice, Pixel)>)> {
         let mut context = ffmpeg::codec::Context::from_parameters(stream.parameters())
             .map_err(|error| ffi::fail("codec parameters", path, error))?;
+        let standalone = device.and_then(|device| device.decoder_for(context.id()));
         // Every core. libavcodec's API opens a decoder on one thread unless
         // told otherwise (the `ffmpeg` tool turns threads on for itself), and
         // a seek decodes every frame from the keyframe before it: on one
@@ -728,20 +731,34 @@ impl Decoder {
         // count, and a caller working in the background says how many.
         // SAFETY: the context is not opened yet, which is when threading is
         // set, and both fields are plain integers.
-        unsafe {
-            let raw = context.as_mut_ptr();
-            (*raw).thread_type = ffmpeg::sys::FF_THREAD_FRAME | ffmpeg::sys::FF_THREAD_SLICE;
-            (*raw).thread_count = i32::from(options.threads);
+        if standalone.is_none() {
+            unsafe {
+                let raw = context.as_mut_ptr();
+                (*raw).thread_type = ffmpeg::sys::FF_THREAD_FRAME | ffmpeg::sys::FF_THREAD_SLICE;
+                (*raw).thread_count = i32::from(options.threads);
+            }
         }
-        let accelerated = device.and_then(|device| {
-            device
-                .attach(&mut context)
-                .map(|format| (device.kind(), format))
-        });
-        let mut decoder = context
-            .decoder()
-            .video()
-            .map_err(|error| ffi::fail("open decoder", path, error))?;
+        let (mut decoder, accelerated) = if let Some(codec) = standalone {
+            let decoder = context
+                .decoder()
+                .open_as(codec)
+                .and_then(|opened| opened.video())
+                .map_err(|error| ffi::fail("open decoder", path, error))?;
+            (decoder, Some((HwDevice::MediaCodec, Pixel::None)))
+        } else {
+            let accelerated = device
+                .filter(|device| device.kind() != HwDevice::MediaCodec)
+                .and_then(|device| {
+                    device
+                        .attach(&mut context)
+                        .map(|format| (device.kind(), format))
+                });
+            let decoder = context
+                .decoder()
+                .video()
+                .map_err(|error| ffi::fail("open decoder", path, error))?;
+            (decoder, accelerated)
+        };
         if options.keyframes_only {
             decoder.skip_frame(ffmpeg::Discard::NonKey);
         }
@@ -783,6 +800,7 @@ impl Decoder {
             .map_err(|error| ffi::fail("seek", &self.path, error))?;
         self.decoder = decoder;
         self.hardware = None;
+        self.pending_packet = None;
         if !self.options.keyframes_only {
             if after {
                 self.discard_through = Some(at);
@@ -810,6 +828,7 @@ impl Decoder {
         self.tick = 0;
         self.current = None;
         self.pending = None;
+        self.pending_packet = None;
         self.source_done = false;
         self.position = None;
         Ok(())
@@ -827,7 +846,9 @@ impl Decoder {
                         .timestamp()
                         .and_then(|ticks| ffi::seconds(ticks, self.time_base))
                         .map(|pts| pts - self.start);
-                    if let Some((device, format)) = self.hardware {
+                    if let Some((device, format)) = self.hardware
+                        && format != Pixel::None
+                    {
                         if frame.format() == format {
                             frame = match hardware::download(&frame) {
                                 Ok(copy) => copy,
@@ -885,6 +906,22 @@ impl Decoder {
             // The codec wants another packet. Packets for other streams are
             // skipped; the end of the file flushes the codec so its last few
             // frames come out at all.
+            if let Some(packet) = self.pending_packet.take() {
+                match self.decoder.send_packet(&packet) {
+                    Ok(()) => continue,
+                    Err(error) if ffi::is_again(&error) => {
+                        self.pending_packet = Some(packet);
+                        continue;
+                    }
+                    Err(error) if self.hardware.is_some() => {
+                        let (device, _) = self.hardware.take().expect("checked");
+                        hardware::note_fallback(device, "take a packet", &error.to_string());
+                        self.resume_in_software(self.last_pts, self.last_pts.is_some())?;
+                        continue;
+                    }
+                    Err(error) => return Err(ffi::fail("send packet", &self.path, error)),
+                }
+            }
             loop {
                 let mut packet = ffmpeg::Packet::empty();
                 match packet.read(&mut self.input) {
@@ -894,7 +931,10 @@ impl Decoder {
                         }
                         match self.decoder.send_packet(&packet) {
                             Ok(()) => break,
-                            Err(error) if ffi::is_again(&error) => break,
+                            Err(error) if ffi::is_again(&error) => {
+                                self.pending_packet = Some(packet);
+                                break;
+                            }
                             Err(error) if self.hardware.is_some() => {
                                 let (device, _) = self.hardware.take().expect("checked");
                                 hardware::note_fallback(
@@ -1561,8 +1601,10 @@ mod tests {
     /// for telling frames apart.
     fn grey_steps(name: &str) -> PathBuf {
         use crate::{EncodeOptions, Encoder, FrameSink};
-        let path =
-            std::env::temp_dir().join(format!("chillstudio-decode-{name}-{}.mp4", std::process::id()));
+        let path = std::env::temp_dir().join(format!(
+            "chillstudio-decode-{name}-{}.mp4",
+            std::process::id()
+        ));
         let mut encoder = Encoder::create(
             &path,
             64,
@@ -1716,8 +1758,10 @@ mod tests {
     /// in software straight away, with the device asked for, and decodes.
     #[test]
     fn a_codec_the_device_lacks_decodes_in_software() {
-        let path =
-            std::env::temp_dir().join(format!("chillstudio-decode-jpeg-{}.jpg", std::process::id()));
+        let path = std::env::temp_dir().join(format!(
+            "chillstudio-decode-jpeg-{}.jpg",
+            std::process::id()
+        ));
         let mut frame = Frame::black(64, 64);
         frame.fill([200, 40, 40, 255]);
         let bytes = crate::encode::jpeg(&frame, 90).expect("a jpeg");

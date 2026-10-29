@@ -22,7 +22,9 @@ use std::sync::{Mutex, OnceLock};
 
 use chillstudio_core::frame::Signal;
 use chillstudio_media::decode::{DecodeOptions, Decoder, FrameSource};
-use chillstudio_media::{ColorRange, EncodeOptions, Encoder, FrameSink, Priority, RateMode, VideoCodec};
+use chillstudio_media::{
+    ColorRange, EncodeOptions, Encoder, FrameSink, Priority, RateMode, VideoCodec,
+};
 
 /// A file with more pixels than this gets a proxy: anything larger than
 /// full HD.
@@ -234,9 +236,10 @@ pub fn write(
         bitrate_kbps: 0,
         ten_bit: false,
         color_range: ColorRange::Limited,
-        // HEVC in ten bits costs the CPU far more than H.264 does; the
-        // media engine does it for nothing where there is one.
-        hardware: hdr,
+        // Background proxies stay in software so importing a clip never
+        // wakes a discrete GPU's hardware encoder on hybrid laptops (#309)
+        // or hits Android's ten-bit MediaCodec filter.
+        hardware: false,
         threads: 2,
     };
     let mut encoder = if hdr {
@@ -282,7 +285,8 @@ mod tests {
             eprintln!("no HEVC encoder in the linked FFmpeg; skipped");
             return;
         }
-        let dir = std::env::temp_dir().join(format!("chillstudio-proxy-hdr-{}", std::process::id()));
+        let dir =
+            std::env::temp_dir().join(format!("chillstudio-proxy-hdr-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).expect("temp dir");
         let media = dir.join("iphone.mp4");
@@ -369,7 +373,8 @@ mod tests {
     fn a_written_proxy_is_read_for_a_moving_picture_only() {
         use chillstudio_core::frame::Frame;
         use chillstudio_core::time::FrameRate;
-        let dir = std::env::temp_dir().join(format!("chillstudio-proxy-write-{}", std::process::id()));
+        let dir =
+            std::env::temp_dir().join(format!("chillstudio-proxy-write-{}", std::process::id()));
         std::fs::create_dir_all(&dir).expect("temp dir");
         let media = dir.join("big.mp4");
         {
@@ -416,7 +421,9 @@ mod tests {
             .expect("reads the proxy");
         assert_eq!((moving.width(), moving.height()), (480, 270));
         let paused = pool
-            .frame(&chillstudio_media::FrameRequest::new(&source, time, 480, 270))
+            .frame(&chillstudio_media::FrameRequest::new(
+                &source, time, 480, 270,
+            ))
             .expect("reads the original");
         assert_eq!((paused.width(), paused.height()), (480, 270));
         // A file not worth a proxy is left alone.
@@ -426,7 +433,8 @@ mod tests {
 
     #[test]
     fn the_proxy_path_follows_the_file_and_changes_when_the_file_does() {
-        let dir = std::env::temp_dir().join(format!("chillstudio-proxy-path-{}", std::process::id()));
+        let dir =
+            std::env::temp_dir().join(format!("chillstudio-proxy-path-{}", std::process::id()));
         std::fs::create_dir_all(&dir).expect("temp dir");
         let media = dir.join("clip.mp4");
         std::fs::write(&media, b"one").expect("writes");

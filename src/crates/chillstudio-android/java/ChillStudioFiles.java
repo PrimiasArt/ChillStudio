@@ -201,15 +201,23 @@ public class ChillStudioFiles extends Fragment {
             @Override
             public void run() {
                 List<String> paths = new ArrayList<String>();
-                File dir = new File(activity.getExternalFilesDir(null), "Imported");
-                dir.mkdirs();
-                for (Uri uri : uris) {
-                    File out = unique(dir, displayName(activity, uri));
-                    if (copy(activity, uri, out)) {
-                        paths.add(out.getAbsolutePath());
+                try {
+                    File base = activity.getExternalFilesDir(null);
+                    if (base == null) {
+                        base = activity.getFilesDir();
                     }
+                    File dir = new File(base, "Imported");
+                    dir.mkdirs();
+                    for (Uri uri : uris) {
+                        File out = unique(dir, displayName(activity, uri));
+                        if (copy(activity, uri, out)) {
+                            paths.add(out.getAbsolutePath());
+                        }
+                    }
+                } catch (Exception ignored) {
+                } finally {
+                    filesPicked(paths.toArray(new String[0]));
                 }
-                filesPicked(paths.toArray(new String[0]));
             }
         }, TAG).start();
     }
@@ -274,7 +282,7 @@ public class ChillStudioFiles extends Fragment {
                 os.write(buffer, 0, read);
             }
             return true;
-        } catch (IOException e) {
+        } catch (Exception e) {
             out.delete();
             return false;
         } finally {

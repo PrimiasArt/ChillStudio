@@ -334,7 +334,10 @@ mod tests {
         for package in catalogue.packages() {
             assert!(package.id().starts_with("chillstudio."), "{}", package.id());
         }
-        assert_eq!(catalogue.get("glow").map(Package::id), Some("chillstudio.glow"));
+        assert_eq!(
+            catalogue.get("glow").map(Package::id),
+            Some("chillstudio.glow")
+        );
         assert_eq!(
             catalogue.get("chillstudio.glow").map(Package::id),
             Some("chillstudio.glow")
@@ -505,7 +508,8 @@ mod tests {
 
     /// A package folder `id` under a fresh temp dir, holding `files`.
     fn scratch(id: &str, files: &[(&str, &str)]) -> std::path::PathBuf {
-        let dir = std::env::temp_dir().join(format!("chillstudio-check-{}-{id}", std::process::id()));
+        let dir =
+            std::env::temp_dir().join(format!("chillstudio-check-{}-{id}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         let folder = dir.join(id);
         std::fs::create_dir_all(&folder).expect("mkdir");
@@ -573,7 +577,10 @@ mod tests {
         // The built-ins' author, as an id and as an alias.
         let folder = scratch(
             "chillstudio.echo",
-            &[("effect.toml", &TINT.replace("alice.tint", "chillstudio.echo"))],
+            &[(
+                "effect.toml",
+                &TINT.replace("alice.tint", "chillstudio.echo"),
+            )],
         );
         let problems = Package::check_folder(&folder, Catalogue::builtin());
         assert_eq!(problems.len(), 1, "{problems:?}");

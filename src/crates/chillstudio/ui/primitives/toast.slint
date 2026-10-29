@@ -26,6 +26,11 @@ export struct ToastData {
 
 export component ToastLayer inherits Rectangle {
     in property <ToastData> data;
+    /// How far the system's bars reach into the window on each side (the
+    /// window's safe-area-insets; zero on a desk).
+    in property <length> inset-bottom;
+    in property <length> inset-left;
+    in property <length> inset-right;
 
     /// Two holds, which are the reason this is a property at all: an error you
     /// missed is an error you go looking for.
@@ -82,14 +87,14 @@ export component ToastLayer inherits Rectangle {
     }
 
     Rectangle {
-        // 16px off both edges. The 12px it is pushed down by when it is away
-        // is the rise.
-        x: root.width - self.width - 16px;
-        y: root.height - self.height - 16px + (root.shown ? 0px : 12px);
+        // 16px off both edges inside the safe area. The 12px it is pushed down
+        // by when it is away is the rise.
+        x: root.width - root.inset-right - self.width - 16px;
+        y: root.height - root.inset-bottom - self.height - 16px + (root.shown ? 0px : 12px);
         // Capped, then the label elides: a notice is a sentence, and one long
         // enough to reach across the window has stopped being one. A failure
         // keeps room for its copy chip.
-        width: Math.min(root.width - 32px,
+        width: Math.min(root.width - root.inset-left - root.inset-right - 32px,
             12px + icon.width + 8px + measure.preferred-width + 12px
                 + (root.data.failed ? 60px : 0px));
         // 12px by 8px of padding around a 16px line.

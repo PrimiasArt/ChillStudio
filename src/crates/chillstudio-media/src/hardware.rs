@@ -292,6 +292,23 @@ impl Device {
         self.kind
     }
 
+    /// The standalone decoder for `id` on this device, when the device uses
+    /// a dedicated codec rather than a hardware config on the built-in one.
+    pub(crate) fn decoder_for(&self, id: ffmpeg::codec::Id) -> Option<ffmpeg::Codec> {
+        if self.kind != HwDevice::MediaCodec {
+            return None;
+        }
+        let name = match id {
+            ffmpeg::codec::Id::H264 => "h264_mediacodec",
+            ffmpeg::codec::Id::HEVC => "hevc_mediacodec",
+            ffmpeg::codec::Id::VP8 => "vp8_mediacodec",
+            ffmpeg::codec::Id::VP9 => "vp9_mediacodec",
+            ffmpeg::codec::Id::AV1 => "av1_mediacodec",
+            _ => return None,
+        };
+        decoder::find_by_name(name)
+    }
+
     /// The pixel format `codec` decodes to on this device, if it can
     /// decode on it at all.
     fn pixel_format(&self, codec: &ffmpeg::Codec) -> Option<Pixel> {

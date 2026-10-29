@@ -134,6 +134,7 @@ pub struct AudioDecoder {
     /// is, the way the picture and the export mix measure it.
     origin: f64,
     decoder: decoder::Audio,
+    pending_packet: Option<ffmpeg::Packet>,
     options: AudioOptions,
     graph: Option<filter::Graph>,
     /// The codec has been drained and the graph flushed; only what the sink
@@ -200,6 +201,7 @@ impl AudioDecoder {
             time_base,
             origin,
             decoder,
+            pending_packet: None,
             options: options.clone(),
             graph: None,
             flushed: false,
@@ -266,6 +268,16 @@ impl AudioDecoder {
                 Err(error) if ffi::is_again(&error) => {}
                 Err(error) => return Err(ffi::fail("decode", &self.path, error)),
             }
+            if let Some(packet) = self.pending_packet.take() {
+                match self.decoder.send_packet(&packet) {
+                    Ok(()) => continue,
+                    Err(error) if ffi::is_again(&error) => {
+                        self.pending_packet = Some(packet);
+                        continue;
+                    }
+                    Err(error) => return Err(ffi::fail("send packet", &self.path, error)),
+                }
+            }
             loop {
                 let mut packet = ffmpeg::Packet::empty();
                 match packet.read(&mut self.input) {
@@ -275,7 +287,10 @@ impl AudioDecoder {
                         }
                         match self.decoder.send_packet(&packet) {
                             Ok(()) => break,
-                            Err(error) if ffi::is_again(&error) => break,
+                            Err(error) if ffi::is_again(&error) => {
+                                self.pending_packet = Some(packet);
+                                break;
+                            }
                             Err(error) => return Err(ffi::fail("send packet", &self.path, error)),
                         }
                     }

@@ -1336,8 +1336,10 @@ pub(crate) mod tests {
     /// channel encodes the frame index (x2 to survive compression
     /// rounding).
     pub(crate) fn counting_video(name: &str, size: u32, frames: u32) -> PathBuf {
-        let path =
-            std::env::temp_dir().join(format!("chillstudio-pool-{name}-{}.mp4", std::process::id()));
+        let path = std::env::temp_dir().join(format!(
+            "chillstudio-pool-{name}-{}.mp4",
+            std::process::id()
+        ));
         let mut encoder = Encoder::create(
             &path,
             size,
@@ -1598,8 +1600,10 @@ pub(crate) mod tests {
     fn a_proxy_that_vanished_falls_back_to_the_original() {
         let path = counting_video("proxy-gone", 32, 10);
         let pool = ReaderPool::new(64 * 1024 * 1024, 2);
-        let gone =
-            std::env::temp_dir().join(format!("chillstudio-no-such-proxy-{}.mp4", std::process::id()));
+        let gone = std::env::temp_dir().join(format!(
+            "chillstudio-no-such-proxy-{}.mp4",
+            std::process::id()
+        ));
         pool.adopt_proxy(&path, gone.clone());
         assert_eq!(pool.proxy_of(&path), Some(gone));
         let frame = pool

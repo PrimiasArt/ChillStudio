@@ -100,6 +100,8 @@ unsafe extern "C" fn relay(
     }
     if level <= ffmpeg::sys::AV_LOG_FATAL {
         log::error!(target: "ffmpeg", "{text}");
+    } else if level <= ffmpeg::sys::AV_LOG_ERROR && !text.contains("mmco: unref short failure") {
+        log::warn!(target: "ffmpeg", "{text}");
     } else {
         log::debug!(target: "ffmpeg", "{text}");
     }

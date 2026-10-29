@@ -1454,7 +1454,10 @@ fn every_edit_still_exports() {
     studio.apply(Command::UpdateClip {
         clip_id: cam_clip.clone(),
         patch: ClipPatch {
-            video_effects: Some(vec![effect("chillstudio.vhs"), effect("chillstudio.film-grain")]),
+            video_effects: Some(vec![
+                effect("chillstudio.vhs"),
+                effect("chillstudio.film-grain"),
+            ]),
             filters: Some(vec![effect("chillstudio.bass")]),
             ..ClipPatch::default()
         },

@@ -118,7 +118,7 @@ pub struct Server {
 
 /// Every open connection's way of being closed, so a stop reaches the
 /// threads blocked reading them.
-pub(crate) type Connections = Arc<Mutex<Vec<Box<dyn Fn() + Send>>>>;
+pub(crate) type Connections = Arc<Mutex<std::collections::HashMap<u64, Box<dyn Fn() + Send>>>>;
 
 impl Server {
     /// Binds every address in `config` and starts serving. `make` builds
@@ -157,7 +157,7 @@ impl Server {
             Ok(api)
         })?;
         let stop = Arc::new(AtomicBool::new(false));
-        let connections: Connections = Arc::new(Mutex::new(Vec::new()));
+        let connections: Connections = Arc::new(Mutex::new(std::collections::HashMap::new()));
         let seats = Arc::new(std::sync::atomic::AtomicUsize::new(0));
         let mut server = Server {
             hub,
@@ -282,7 +282,7 @@ impl Server {
             let _ = thread.join();
         }
         if let Ok(mut connections) = self.connections.lock() {
-            for close in connections.drain(..) {
+            for (_, close) in connections.drain() {
                 close();
             }
         }

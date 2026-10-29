@@ -381,9 +381,18 @@ mod publisher {
 #[cfg(target_os = "android")]
 #[unsafe(no_mangle)]
 fn android_main(app: slint::android::AndroidApp) {
-    // Directories first: the log file is written into one of them.
-    activity::name_directories(&app);
-    activity::open_log();
+    static INIT: std::sync::Once = std::sync::Once::new();
+    let mut first_start = false;
+    INIT.call_once(|| {
+        first_start = true;
+        // Directories first: the log file is written into one of them.
+        activity::name_directories(&app);
+        activity::open_log();
+    });
+    if !first_start {
+        log::warn!("android_main called again on activity recreation; ignoring duplicate start");
+        return;
+    }
     log::info!("ChillStudio {} starting", env!("CARGO_PKG_VERSION"));
     if let Err(error) = slint::android::init(app.clone()) {
         log::error!("could not start the Android backend: {error}");

@@ -140,7 +140,8 @@ impl ExportPane {
             // A codec this device cannot encode is not taken: the picker
             // says so under it, and the choice before stands.
             ExportMsg::CodecChanged(index) => {
-                let index = (index.max(0) as usize).min(chillstudio_media::VideoCodec::ALL.len() - 1);
+                let index =
+                    (index.max(0) as usize).min(chillstudio_media::VideoCodec::ALL.len() - 1);
                 if chillstudio_media::VideoCodec::ALL[index].encodable() {
                     self.codec = index;
                 }

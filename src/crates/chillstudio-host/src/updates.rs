@@ -42,7 +42,8 @@ pub const FIRST_SWITCHABLE: Version = Version::new(0, 2, 5);
 
 /// GitHub's list of the repository's releases, newest first. A hundred
 /// covers years of releases at this pace.
-const RELEASES_URL: &str = "https://api.github.com/repos/PrimiasArt/ChillStudio/releases?per_page=100";
+const RELEASES_URL: &str =
+    "https://api.github.com/repos/PrimiasArt/ChillStudio/releases?per_page=100";
 
 /// What a download that was stopped says.
 pub const CANCELLED: &str = "the download was cancelled";
@@ -857,6 +858,9 @@ mod tests {
     #[test]
     fn the_updates_folder_hangs_off_the_data_directory() {
         let dirs = AppDirs::under(Path::new("/tmp/chillstudio-updates-test"));
-        assert_eq!(folder(&dirs), Path::new("/tmp/chillstudio-updates-test/updates"));
+        assert_eq!(
+            folder(&dirs),
+            Path::new("/tmp/chillstudio-updates-test/updates")
+        );
     }
 }

@@ -292,7 +292,11 @@ fn footage(
 
 /// `frame` cut to `width` by `height` from its top-left, or the frame
 /// itself when it is that size already.
-pub(crate) fn crop(frame: &chillstudio_core::Frame, width: u32, height: u32) -> chillstudio_core::Frame {
+pub(crate) fn crop(
+    frame: &chillstudio_core::Frame,
+    width: u32,
+    height: u32,
+) -> chillstudio_core::Frame {
     if frame.width() == width && frame.height() == height {
         return frame.clone();
     }

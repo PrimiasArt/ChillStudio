@@ -91,6 +91,9 @@ concurrency:
   group: mobile-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' || github.event_name == 'push' }}
 
+permissions:
+  contents: read
+
 env:
   CARGO_TERM_COLOR: always
   # ggml compiles to the portable baseline for the architecture, NEON on

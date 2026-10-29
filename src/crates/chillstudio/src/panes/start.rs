@@ -386,13 +386,19 @@ mod tests {
             location_on("ios", desktop(), home),
             "/home/Documents/ChillStudio"
         );
-        assert_eq!(location_on("ios", None, home), "/home/Documents/ChillStudio");
+        assert_eq!(
+            location_on("ios", None, home),
+            "/home/Documents/ChillStudio"
+        );
         assert_eq!(location_on("android", None, home), "/home/ChillStudio");
         assert_eq!(
             PathBuf::from(location_on("macos", desktop(), home)),
             Path::new("/desk").join("ChillStudio")
         );
-        assert_eq!(location_on("linux", None, home), "/home/Desktop/ChillStudio");
+        assert_eq!(
+            location_on("linux", None, home),
+            "/home/Desktop/ChillStudio"
+        );
     }
 
     /// The next untitled name skips every folder already there, and starts
@@ -439,7 +445,8 @@ mod tests {
     /// the next free name, not the one that would be refused.
     #[test]
     fn compose_offers_a_name_that_is_free_in_the_location() {
-        let root = std::env::temp_dir().join(format!("chillstudio-untitled-{}", std::process::id()));
+        let root =
+            std::env::temp_dir().join(format!("chillstudio-untitled-{}", std::process::id()));
         std::fs::create_dir_all(root.join("Untitled project")).unwrap();
         let pane = StartPane {
             location: root.to_string_lossy().into_owned(),

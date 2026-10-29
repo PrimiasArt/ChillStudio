@@ -258,7 +258,8 @@ impl SettingsPane {
                 let Some(level) = LOG_LEVELS.get(index.max(0) as usize) else {
                     return;
                 };
-                studio.prefs.log_level = Some(chillstudio_host::logs::level_name(*level).to_owned());
+                studio.prefs.log_level =
+                    Some(chillstudio_host::logs::level_name(*level).to_owned());
                 studio.prefs.save(&studio.host.dirs);
                 // Applied now, whatever the environment said: a person at
                 // the sheet is asking for this run too.

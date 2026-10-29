@@ -337,6 +337,7 @@ struct MixInput {
     input: ffmpeg::format::context::Input,
     stream: usize,
     decoder: ffmpeg::codec::decoder::Audio,
+    pending_packet: Option<ffmpeg::Packet>,
     label: String,
     done: bool,
     /// Samples already sent to the graph for this clip.
@@ -362,6 +363,16 @@ impl MixInput {
                 Err(error) if ffi::is_again(&error) => {}
                 Err(error) => return Err(ffi::fail("decode", &self.path, error)),
             }
+            if let Some(packet) = self.pending_packet.take() {
+                match self.decoder.send_packet(&packet) {
+                    Ok(()) => continue,
+                    Err(error) if ffi::is_again(&error) => {
+                        self.pending_packet = Some(packet);
+                        continue;
+                    }
+                    Err(error) => return Err(ffi::fail("send packet", &self.path, error)),
+                }
+            }
             loop {
                 let mut packet = ffmpeg::Packet::empty();
                 match packet.read(&mut self.input) {
@@ -371,7 +382,10 @@ impl MixInput {
                         }
                         match self.decoder.send_packet(&packet) {
                             Ok(()) => break,
-                            Err(error) if ffi::is_again(&error) => break,
+                            Err(error) if ffi::is_again(&error) => {
+                                self.pending_packet = Some(packet);
+                                break;
+                            }
                             Err(error) => return Err(ffi::fail("send packet", &self.path, error)),
                         }
                     }
@@ -390,6 +404,20 @@ impl MixInput {
 ///
 /// Every clip's file must contain an audio stream; see [`mix_graph`].
 pub fn mix_to_file(clips: &[AudioClip], duration: f64, destination: &Path) -> Result<()> {
+    let never = std::sync::atomic::AtomicBool::new(false);
+    mix_to_file_cancellable(clips, duration, destination, &never)
+}
+
+/// Mixes `clips` into one AAC file at `destination`, aborting early when
+/// `cancel` is set.
+///
+/// Every clip's file must contain an audio stream; see [`mix_graph`].
+pub fn mix_to_file_cancellable(
+    clips: &[AudioClip],
+    duration: f64,
+    destination: &Path,
+    cancel: &std::sync::atomic::AtomicBool,
+) -> Result<()> {
     ffi::init();
     // A bad chain is refused before any file is opened.
     for clip in clips {
@@ -438,6 +466,7 @@ pub fn mix_to_file(clips: &[AudioClip], duration: f64, destination: &Path) -> Re
             input,
             stream: stream_index,
             decoder,
+            pending_packet: None,
             label,
             done: false,
             samples_sent: 0,
@@ -599,6 +628,12 @@ pub fn mix_to_file(clips: &[AudioClip], duration: f64, destination: &Path) -> Re
             .map_err(|error| ffi::fail("filter", &inputs[index].path, error))?;
     }
     'mix: loop {
+        if cancel.load(std::sync::atomic::Ordering::Relaxed) {
+            return Err(Error::Io {
+                path: destination.to_path_buf(),
+                source: std::io::Error::new(std::io::ErrorKind::Interrupted, "export cancelled"),
+            });
+        }
         // Pull everything the sink has.
         loop {
             let mut mixed = Audio::empty();

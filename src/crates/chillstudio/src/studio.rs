@@ -2618,7 +2618,13 @@ impl Studio {
         let Some(session) = self.session.as_ref() else {
             return;
         };
-        let specs = audio_specs(&session.flattened_clips());
+        let settings = session.settings();
+        let num = settings.rate_num.max(1);
+        let den = settings.rate_den.max(1);
+        let rate = chillstudio_core::FrameRate::new(chillstudio_core::Rational::new(num, den));
+        let mut clips = session.flattened_clips();
+        chillstudio_export::apply_transitions(&mut clips, rate);
+        let specs = audio_specs(&clips);
         self.host
             .playback
             .set_clips(std::path::PathBuf::from(session.path()), specs);
@@ -5814,7 +5820,9 @@ impl Studio {
                         chillstudio_host::cutout::Progress::Fetching { received, total } => {
                             (true, received as f32 / total.max(1) as f32)
                         }
-                        chillstudio_host::cutout::Progress::Analysing(fraction) => (false, fraction),
+                        chillstudio_host::cutout::Progress::Analysing(fraction) => {
+                            (false, fraction)
+                        }
                     };
                     if now.0 != last.0 || now.1 - last.1 >= 0.01 {
                         last = now;
@@ -6073,7 +6081,8 @@ impl Studio {
         }
         let factor = chillstudio_vision::enhance::factor_for(width, height);
         let still = clip.kind == model::ClipKind::Image;
-        let Some(target) = chillstudio_host::enhance::target_for(&project, &media.path, factor, still)
+        let Some(target) =
+            chillstudio_host::enhance::target_for(&project, &media.path, factor, still)
         else {
             self.notify(&tf("studio.couldNotRead", &[&media.path]), true);
             return;
@@ -6101,7 +6110,9 @@ impl Studio {
                         chillstudio_host::enhance::Progress::Fetching { received, total } => {
                             (true, received as f32 / total.max(1) as f32)
                         }
-                        chillstudio_host::enhance::Progress::Analysing(fraction) => (false, fraction),
+                        chillstudio_host::enhance::Progress::Analysing(fraction) => {
+                            (false, fraction)
+                        }
                     };
                     if now.0 != last.0 || now.1 - last.1 >= 0.01 {
                         last = now;
@@ -6163,9 +6174,13 @@ impl Studio {
         // what `speed` holds then.
         let start = clip.source_start;
         let covered = clip.duration * clip.speed;
-        let Some(target) =
-            chillstudio_host::reverse::target_for(&project, &media.path, start, covered, audio_only)
-        else {
+        let Some(target) = chillstudio_host::reverse::target_for(
+            &project,
+            &media.path,
+            start,
+            covered,
+            audio_only,
+        ) else {
             self.notify(&tf("studio.couldNotRead", &[&media.path]), true);
             return;
         };
@@ -6808,10 +6823,17 @@ impl Studio {
             return;
         }
         sources.sort_by(|left, right| right.start.total_cmp(&left.start));
+        self.flush_commit();
         let mut last = None;
         for source in &sources {
-            self.duplicate(source);
-            last = self.selection.first().cloned();
+            let end = source.start + source.duration;
+            let track_id = source.track_id.clone();
+            if let Some(created) = self.place_copy(source, &track_id, end, Some("duplicate")) {
+                last = Some(created);
+            }
+        }
+        if let Some(session) = self.session.as_mut() {
+            session.end_gesture();
         }
         if let Some(id) = last {
             self.selection = vec![id];
@@ -6820,10 +6842,14 @@ impl Studio {
 
     /// A copy of `source` laid right after it on its own lane, selected.
     pub fn duplicate(&mut self, source: &Clip) {
+        self.flush_commit();
         let end = source.start + source.duration;
         let track_id = source.track_id.clone();
-        if let Some(created) = self.place_copy(source, &track_id, end, None) {
+        if let Some(created) = self.place_copy(source, &track_id, end, Some("duplicate")) {
             self.selection = vec![created];
+        }
+        if let Some(session) = self.session.as_mut() {
+            session.end_gesture();
         }
     }
 
@@ -9194,7 +9220,9 @@ impl Studio {
                         chillstudio_host::cutout::Progress::Fetching { received, total } => {
                             (true, received as f32 / total.max(1) as f32)
                         }
-                        chillstudio_host::cutout::Progress::Analysing(fraction) => (false, fraction),
+                        chillstudio_host::cutout::Progress::Analysing(fraction) => {
+                            (false, fraction)
+                        }
                     };
                     let key = reporting.clone();
                     on_ui_in_project(epoch, move |studio, _, _| {

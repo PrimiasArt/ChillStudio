@@ -334,7 +334,8 @@ pub const NOTO_SANS_HEBREW: &[u8] = include_bytes!("../fonts/NotoSansHebrew-Chil
 /// Noto Sans Devanagari 2.007, for Hindi. From
 /// https://github.com/notofonts/devanagari/releases/download/NotoSansDevanagari-v2.007/NotoSansDevanagari-v2.007.zip
 /// (SHA-256 820c7da45b1e63562cb41c0a8cac5d9a4202312043a3a040ed1325857ef469b1).
-pub const NOTO_SANS_DEVANAGARI: &[u8] = include_bytes!("../fonts/NotoSansDevanagari-ChillStudio.ttf");
+pub const NOTO_SANS_DEVANAGARI: &[u8] =
+    include_bytes!("../fonts/NotoSansDevanagari-ChillStudio.ttf");
 
 /// Noto Sans Bengali 3.011. From
 /// https://github.com/notofonts/bengali/releases/download/NotoSansBengali-v3.011/NotoSansBengali-v3.011.zip

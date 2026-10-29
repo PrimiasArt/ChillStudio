@@ -600,7 +600,8 @@ mod tests {
             eprintln!("no usable GPU adapter; skipping");
             return;
         };
-        if compositor.on_software_adapter() && std::env::var_os("CHILLSTUDIO_REQUIRE_GPU").is_none() {
+        if compositor.on_software_adapter() && std::env::var_os("CHILLSTUDIO_REQUIRE_GPU").is_none()
+        {
             eprintln!("a software adapter only, and CHILLSTUDIO_REQUIRE_GPU is not set; skipping");
             return;
         }

@@ -308,7 +308,8 @@ mod tests {
     fn the_probe_reads_a_files_hdr_tags() {
         use crate::encode::{EncodeOptions, Encoder, FrameSink, RateMode, VideoCodec};
         use chillstudio_core::frame::Frame;
-        let dir = std::env::temp_dir().join(format!("chillstudio-probe-hdr-{}", std::process::id()));
+        let dir =
+            std::env::temp_dir().join(format!("chillstudio-probe-hdr-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).expect("a scratch folder");
         let options = EncodeOptions {

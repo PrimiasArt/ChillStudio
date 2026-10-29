@@ -370,7 +370,9 @@ mod tests {
     use std::sync::Arc;
 
     use chillstudio_core::time::FrameRate;
-    use chillstudio_core::timeline::{Clip, ClipId, MediaRef, Timeline, Track, TrackKind, Transform};
+    use chillstudio_core::timeline::{
+        Clip, ClipId, MediaRef, Timeline, Track, TrackKind, Transform,
+    };
 
     use super::*;
     use crate::plan::{Crop, Transition};

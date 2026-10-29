@@ -1009,7 +1009,8 @@ mod tests {
             .unwrap();
         assert!(graphs < data);
         // Nothing is installed in an empty folder, and nothing panics.
-        let dir = std::env::temp_dir().join(format!("chillstudio-chatterbox-{}", std::process::id()));
+        let dir =
+            std::env::temp_dir().join(format!("chillstudio-chatterbox-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         assert!(!installed(&dir));
         std::fs::create_dir_all(dir.join("onnx")).expect("mkdir");

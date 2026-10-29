@@ -378,8 +378,11 @@ mod tests {
             std::env::temp_dir().join(format!("chillstudio-corrupt-test-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&scratch);
         std::fs::create_dir_all(&scratch).expect("scratch dir");
-        std::fs::write(scratch.join("chillstudio.json"), br#"{"timelines": "garbage"}"#)
-            .expect("writes");
+        std::fs::write(
+            scratch.join("chillstudio.json"),
+            br#"{"timelines": "garbage"}"#,
+        )
+        .expect("writes");
         assert!(Session::open(&scratch.to_string_lossy(), settings()).is_err());
         let _ = std::fs::remove_dir_all(&scratch);
     }

@@ -550,15 +550,13 @@ pub fn parse_copilot_prompt(prompt: &str) -> Option<CopilotAction> {
             height: 1920,
         });
     }
-    if lower.contains("1:1") || lower.contains("khung vuông") || lower.contains("video vuông")
-    {
+    if lower.contains("1:1") || lower.contains("khung vuông") || lower.contains("video vuông") {
         return Some(CopilotAction::SmartReframe {
             width: 1080,
             height: 1080,
         });
     }
-    if lower.contains("16:9") || lower.contains("khung ngang") || lower.contains("video ngang")
-    {
+    if lower.contains("16:9") || lower.contains("khung ngang") || lower.contains("video ngang") {
         return Some(CopilotAction::SmartReframe {
             width: 1920,
             height: 1080,
@@ -701,10 +699,8 @@ mod tests {
 
     #[test]
     fn word_groups_split_cleanly_for_tiktok_captions() {
-        let groups = split_into_word_groups(
-            "Xin chào các bạn, chào mừng đến với Chill Studio NKI!",
-            3,
-        );
+        let groups =
+            split_into_word_groups("Xin chào các bạn, chào mừng đến với Chill Studio NKI!", 3);
         assert_eq!(
             groups,
             vec![

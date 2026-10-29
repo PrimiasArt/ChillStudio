@@ -4,8 +4,8 @@
 //! The ChillStudio API: the one dispatcher every way of driving the editor
 //! without its window goes through.
 //!
-//! The command line, a daemon on a socket, an MCP server, a plugin: each is
-//! a transport, and a transport is a loop that reads a [`Request`], hands
+//! The command line, a daemon on a socket, an agent or script, a plugin: each
+//! is a transport, and a transport is a loop that reads a [`Request`], hands
 //! it to [`Api::dispatch`], and writes the [`Response`] back, forwarding
 //! the [`Event`]s the API's jobs raise as they come. Nothing about what a
 //! request *means* lives in a transport, so two of them cannot disagree,

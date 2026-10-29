@@ -72,6 +72,9 @@ on:
         description: The .pfx's password
         required: false
 
+permissions:
+  contents: read
+
 env:
   CARGO_TERM_COLOR: always
   # The prebuilt dependencies - BtbN's FFmpeg 8.1 (GPL, shared, one per

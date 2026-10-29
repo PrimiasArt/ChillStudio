@@ -760,9 +760,10 @@ pub fn media_art(
         .flatten();
     // The filmstrip reads the proxy where the file has one: the tiles are
     // small, and a 4K file's frames cost more than they show.
-    let strip_source = chillstudio_host::proxy::existing(std::path::Path::new(&project), &path, range)
-        .map(|proxy| proxy.to_string_lossy().into_owned())
-        .unwrap_or_else(|| path.clone());
+    let strip_source =
+        chillstudio_host::proxy::existing(std::path::Path::new(&project), &path, range)
+            .map(|proxy| proxy.to_string_lossy().into_owned())
+            .unwrap_or_else(|| path.clone());
     let strip = if pictures {
         match kind {
             MediaKind::Video => media::filmstrip(&strip_source, STRIP_FRAMES, STRIP_HEIGHT)

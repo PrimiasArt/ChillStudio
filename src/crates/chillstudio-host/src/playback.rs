@@ -1169,9 +1169,11 @@ where
                     loudest_right = loudest_right.max(right.abs());
                     // Hard limit. A mix of boosted clips can exceed full
                     // scale; wrapping would be far worse than flattening.
-                    frame[0] = T::from_sample(left.clamp(-1.0, 1.0));
                     if channels > 1 {
+                        frame[0] = T::from_sample(left.clamp(-1.0, 1.0));
                         frame[1] = T::from_sample(right.clamp(-1.0, 1.0));
+                    } else {
+                        frame[0] = T::from_sample(((left + right) * 0.5).clamp(-1.0, 1.0));
                     }
                     for extra in frame.iter_mut().skip(2) {
                         *extra = T::from_sample(0.0);

@@ -333,10 +333,11 @@ impl Monitor {
         if !spec.moving {
             early.clear();
         } else {
-            let far = chillstudio_export::preview_moments(&plan, spec.time + NEXT_CUT, 1, spec.proxy)
-                .pop()
-                .map(|far| far.frames)
-                .unwrap_or_default();
+            let far =
+                chillstudio_export::preview_moments(&plan, spec.time + NEXT_CUT, 1, spec.proxy)
+                    .pop()
+                    .map(|far| far.frames)
+                    .unwrap_or_default();
             let near = |path: &PathBuf| {
                 moments
                     .iter()

@@ -423,7 +423,8 @@ fn switched_on(encoder_name: &str, var: impl Fn(&str) -> Option<std::ffi::OsStri
     if !family.hardware() || cfg!(any(target_os = "android", target_os = "ios")) {
         return true;
     }
-    if var("CHILLSTUDIO_HARDWARE_ENCODE").is_some_and(|value| value.to_string_lossy().trim() == "0") {
+    if var("CHILLSTUDIO_HARDWARE_ENCODE").is_some_and(|value| value.to_string_lossy().trim() == "0")
+    {
         return false;
     }
     if family == Family::Nvenc
@@ -1928,8 +1929,10 @@ mod tests {
     /// reader, not just this crate's own decoder, counts by).
     #[test]
     fn every_written_frame_decodes_back_even_at_a_rate_with_no_last_neighbour() {
-        let dir =
-            std::env::temp_dir().join(format!("chillstudio-media-encode-test-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!(
+            "chillstudio-media-encode-test-{}",
+            std::process::id()
+        ));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).expect("scratch dir");
         let path = dir.join("150-at-25fps.mp4");
@@ -2382,8 +2385,10 @@ mod tests {
                 continue;
             }
             for (signal, level) in [(Signal::Hlg, 0.75f64), (Signal::Pq, 0.58)] {
-                let path = std::env::temp_dir()
-                    .join(format!("chillstudio-encode-hdr-{}-{signal:?}.mp4", codec.name()));
+                let path = std::env::temp_dir().join(format!(
+                    "chillstudio-encode-hdr-{}-{signal:?}.mp4",
+                    codec.name()
+                ));
                 let mut encoder =
                     Encoder::create_hdr(&path, 64, 64, FrameRate::THIRTY, &options(codec), signal)
                         .unwrap_or_else(|error| panic!("{} {signal:?}: {error}", codec.label()));

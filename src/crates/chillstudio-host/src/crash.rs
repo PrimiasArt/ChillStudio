@@ -210,14 +210,15 @@ mod platform {
         if pc == 0 {
             return;
         }
-        // SAFETY: dladdr only reads the loader's tables; the strings it
-        // returns live as long as the module.
+        // SAFETY: `dladdr` queries the dynamic loader for `pc`; the strings
+        // it returns live as long as the module, and `to_str` borrows them
+        // without allocating.
         unsafe {
             let mut info: libc::Dl_info = std::mem::zeroed();
             if libc::dladdr(pc as *const c_void, &mut info) != 0 && !info.dli_fname.is_null() {
-                let path = CStr::from_ptr(info.dli_fname).to_string_lossy();
+                let path = CStr::from_ptr(info.dli_fname).to_str().unwrap_or("?");
                 let offset = pc.wrapping_sub(info.dli_fbase as usize);
-                let _ = write!(line, " in {}+{offset:#x}", file_name(&path));
+                let _ = write!(line, " in {}+{offset:#x}", file_name(path));
                 return;
             }
         }
@@ -345,7 +346,7 @@ mod platform {
     static mut PREVIOUS: LPTOP_LEVEL_EXCEPTION_FILTER = None;
 
     /// What the codes a crash arrives as mean.
-    const CODES: [(u32, &str); 9] = [
+    const CODES: [(u32, &str); 7] = [
         (0xC000_0005, "EXCEPTION_ACCESS_VIOLATION"),
         (0xC000_0006, "EXCEPTION_IN_PAGE_ERROR"),
         (
@@ -355,8 +356,6 @@ mod platform {
         (0xC000_0094, "EXCEPTION_INT_DIVIDE_BY_ZERO"),
         (0xC000_0096, "EXCEPTION_PRIV_INSTRUCTION"),
         (0xC000_00FD, "EXCEPTION_STACK_OVERFLOW"),
-        (0xC000_0409, "STATUS_STACK_BUFFER_OVERRUN"),
-        (0xC000_0374, "STATUS_HEAP_CORRUPTION"),
         (0xE06D_7363, "an uncaught C++ exception"),
     ];
 
@@ -391,12 +390,15 @@ mod platform {
     }
 
     unsafe fn describe(pointers: *const EXCEPTION_POINTERS) -> Line {
+        #[link(name = "kernel32")]
+        unsafe extern "system" {
+            fn GetCurrentThreadId() -> u32;
+        }
         let mut line = Line::new();
-        let _ = write!(line, "FATAL [");
-        // A thread Rust started has its name already, so this is a read;
-        // on one a library started it is "?".
-        let _ = write!(line, "{}", std::thread::current().name().unwrap_or("?"));
-        let _ = write!(line, "] crash");
+        // SAFETY: reads the thread environment block without allocating or
+        // touching Rust TLS, which may not exist on a foreign thread.
+        let tid = unsafe { GetCurrentThreadId() };
+        let _ = write!(line, "FATAL [tid {tid}] crash");
         // SAFETY: as `on_exception` says.
         let record = unsafe { (*pointers).ExceptionRecord.as_ref() };
         let Some(record) = record else {

@@ -18,7 +18,7 @@
 
 use std::io::{BufRead, BufReader, Write};
 use std::net::TcpListener;
-use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
 use std::sync::mpsc::{self, SyncSender};
 use std::sync::{Arc, Mutex};
 use std::thread::JoinHandle;
@@ -83,6 +83,8 @@ fn refuse_full(mut writer: impl Write) {
     let _ = writer.flush();
 }
 
+static NEXT_CONNECTION_ID: AtomicU64 = AtomicU64::new(1);
+
 /// Accepts JSON-RPC connections on `listener` until `stop` is set.
 pub(crate) fn serve_tcp(
     listener: TcpListener,
@@ -97,7 +99,10 @@ pub(crate) fn serve_tcp(
             if stop.load(Ordering::SeqCst) {
                 break;
             }
-            let Ok(stream) = stream else { continue };
+            let Ok(stream) = stream else {
+                std::thread::sleep(Duration::from_millis(10));
+                continue;
+            };
             let _ = stream.set_nodelay(true);
             let Some(seat) = Seat::take(&seats) else {
                 refuse_full(stream);
@@ -115,25 +120,37 @@ pub(crate) fn serve_tcp(
             let Ok(timer) = stream.try_clone() else {
                 continue;
             };
+            let id = NEXT_CONNECTION_ID.fetch_add(1, Ordering::Relaxed);
             if let Ok(mut connections) = connections.lock() {
-                connections.push(Box::new(move || {
-                    let _ = closer.shutdown(std::net::Shutdown::Both);
-                }));
+                connections.insert(
+                    id,
+                    Box::new(move || {
+                        let _ = closer.shutdown(std::net::Shutdown::Both);
+                    }),
+                );
             }
             // The handshake has this long; once it is done the caller may
             // be silent for as long as it likes.
             let _ = stream.set_read_timeout(Some(AUTH_TIMEOUT));
             let hub = hub.clone();
             let token = token.clone();
-            std::thread::spawn(move || {
-                let _seat = seat;
-                connection(BufReader::new(reader), stream, hub, token, move || {
-                    let _ = timer.set_read_timeout(None);
-                });
-                // The registry above still holds a handle, so the socket is
-                // shut here rather than merely dropped: the caller sees EOF.
-                let _ = ender.shutdown(std::net::Shutdown::Both);
-            });
+            let registry = Arc::clone(&connections);
+            if std::thread::Builder::new()
+                .spawn(move || {
+                    let _seat = seat;
+                    connection(BufReader::new(reader), stream, hub, token, move || {
+                        let _ = timer.set_read_timeout(None);
+                    });
+                    if let Ok(mut connections) = registry.lock() {
+                        connections.remove(&id);
+                    }
+                    let _ = ender.shutdown(std::net::Shutdown::Both);
+                })
+                .is_err()
+                && let Ok(mut connections) = connections.lock()
+            {
+                connections.remove(&id);
+            }
         }
     })
 }
@@ -153,7 +170,10 @@ pub(crate) fn serve_unix(
             if stop.load(Ordering::SeqCst) {
                 break;
             }
-            let Ok(stream) = stream else { continue };
+            let Ok(stream) = stream else {
+                std::thread::sleep(Duration::from_millis(10));
+                continue;
+            };
             let Some(seat) = Seat::take(&seats) else {
                 refuse_full(stream);
                 continue;
@@ -170,25 +190,37 @@ pub(crate) fn serve_unix(
             let Ok(timer) = stream.try_clone() else {
                 continue;
             };
+            let id = NEXT_CONNECTION_ID.fetch_add(1, Ordering::Relaxed);
             if let Ok(mut connections) = connections.lock() {
-                connections.push(Box::new(move || {
-                    let _ = closer.shutdown(std::net::Shutdown::Both);
-                }));
+                connections.insert(
+                    id,
+                    Box::new(move || {
+                        let _ = closer.shutdown(std::net::Shutdown::Both);
+                    }),
+                );
             }
             // The handshake has this long; once it is done the caller may
             // be silent for as long as it likes.
             let _ = stream.set_read_timeout(Some(AUTH_TIMEOUT));
             let hub = hub.clone();
             let token = token.clone();
-            std::thread::spawn(move || {
-                let _seat = seat;
-                connection(BufReader::new(reader), stream, hub, token, move || {
-                    let _ = timer.set_read_timeout(None);
-                });
-                // The registry above still holds a handle, so the socket is
-                // shut here rather than merely dropped: the caller sees EOF.
-                let _ = ender.shutdown(std::net::Shutdown::Both);
-            });
+            let registry = Arc::clone(&connections);
+            if std::thread::Builder::new()
+                .spawn(move || {
+                    let _seat = seat;
+                    connection(BufReader::new(reader), stream, hub, token, move || {
+                        let _ = timer.set_read_timeout(None);
+                    });
+                    if let Ok(mut connections) = registry.lock() {
+                        connections.remove(&id);
+                    }
+                    let _ = ender.shutdown(std::net::Shutdown::Both);
+                })
+                .is_err()
+                && let Ok(mut connections) = connections.lock()
+            {
+                connections.remove(&id);
+            }
         }
     })
 }

@@ -386,7 +386,9 @@ pub struct ExportRequest {
 /// The engine's word for a document's colour range: the two enums are one
 /// idea kept in two crates, since the document knows nothing of FFmpeg
 /// and the engine nothing of documents.
-pub fn engine_range(range: chillstudio_project::model::ColorRange) -> chillstudio_media::ColorRange {
+pub fn engine_range(
+    range: chillstudio_project::model::ColorRange,
+) -> chillstudio_media::ColorRange {
     match range {
         chillstudio_project::model::ColorRange::Limited => chillstudio_media::ColorRange::Limited,
         chillstudio_project::model::ColorRange::Full => chillstudio_media::ColorRange::Full,
@@ -547,6 +549,13 @@ pub(crate) fn transitions_at(shapes: &[TransitionShape], frame: i64) -> Vec<Tran
 /// `combine_transition`. Legacy ids are matched first and never reach this
 /// path, so a project saved before packaged transitions existed renders
 /// exactly as it always did.
+/// Applies per-cut transitions across `clips` in place at `rate`: overlaps,
+/// fade ramps and held frames, so playback audio hears the same crossfades
+/// and extended handles the export writes.
+pub fn apply_transitions(clips: &mut Vec<ExportClip>, rate: FrameRate) {
+    let _ = resolve_transitions_at(clips, rate, 0.0);
+}
+
 fn resolve_transitions(clips: &mut Vec<ExportClip>, rate: FrameRate) -> Vec<TransitionSpan> {
     resolve_transitions_at(clips, rate, 0.0)
 }
@@ -591,6 +600,14 @@ fn resolve_transitions_at(
             _ => {}
         }
     }
+
+    // Resolve cuts in timeline order so a chain of transitions sees each
+    // outgoing clip before the next cut moves or extends it.
+    cuts.sort_by(|left, right| {
+        let a = clips[left.incoming].start;
+        let b = clips[right.incoming].start;
+        a.total_cmp(&b)
+    });
 
     for cut in cuts {
         match cut.kind.as_str() {
@@ -803,7 +820,7 @@ fn overlap(clips: &mut Vec<ExportClip>, cut: &Cut, frame: f64) -> Option<Overlap
         lead = 0.0;
     }
     let tail = length - lead;
-    let a_track = a.track;
+    let base = a.track & !1;
     let a_end = a.start + a.duration;
     let outgoing_runs = tail_handle(a, frame) + frame / 2.0 >= tail;
 
@@ -813,14 +830,15 @@ fn overlap(clips: &mut Vec<ExportClip>, cut: &Cut, frame: f64) -> Option<Overlap
         // Sound rides the picture: each side fades across the overlap
         // rather than arriving or leaving at full level.
         b.fade_in = b.fade_in.max(length);
-        b.track = a_track + 1;
+        b.track = base + 1;
     }
     if outgoing_runs {
         let a = &mut clips[cut.outgoing];
         extend(a, 0.0, tail);
         a.fade_out = a.fade_out.max(length);
     } else {
-        let hold = last_frame_held(&clips[cut.outgoing], a_end, tail, frame);
+        let mut hold = last_frame_held(&clips[cut.outgoing], a_end, tail, frame);
+        hold.track = base;
         clips.push(hold);
     }
     Some(Overlap {
@@ -1130,7 +1148,13 @@ pub fn render_on(
             reporter.cancelled()?;
             reporter.emit(0, total_frames, "mixing audio");
             let mix: Vec<AudioClip> = sound.iter().flat_map(|clip| audio_pieces(clip)).collect();
-            audio::mix_to_file(&mix, timeline_end, &mixed).map_err(|error| error.to_string())?;
+            let res = audio::mix_to_file_cancellable(&mix, timeline_end, &mixed, reporter.cancel);
+            if let Err(error) = res {
+                if reporter.cancel.load(Ordering::Relaxed) {
+                    return Err("export cancelled".to_owned());
+                }
+                return Err(error.to_string());
+            }
 
             reporter.cancelled()?;
             reporter.emit(total_frames, total_frames, "muxing");
@@ -1311,7 +1335,10 @@ fn shapes_at(
 /// A stack already drawn, as a layer over the whole frame on the lowest
 /// track: texel for pixel, since it is the frame's own size.
 fn ground_layer(ground: Frame) -> PlannedLayer {
-    PlannedLayer::picture(chillstudio_render::detached_clip(), std::sync::Arc::new(ground))
+    PlannedLayer::picture(
+        chillstudio_render::detached_clip(),
+        std::sync::Arc::new(ground),
+    )
 }
 
 /// The compositor an export draws with when its caller lends none: a
@@ -1767,6 +1794,14 @@ impl Compositor for EffectClock<'_> {
             pass,
         )
     }
+
+    fn lost(&self) -> bool {
+        self.inner.lost()
+    }
+
+    fn deliver_hdr(&mut self, hdr: bool) {
+        self.inner.deliver_hdr(hdr);
+    }
 }
 
 /// Draws `plan` with every treatment live at its instant applied to the
@@ -1825,19 +1860,23 @@ fn transition_stages(plan: &FramePlan, span: &TransitionSpan) -> (FramePlan, Fra
         treatments: Vec::new(),
         output: plan.output,
     };
+    let layers = &plan.layers;
+    let incoming = layers.iter().rposition(|l| l.track == span.to_track);
     let from = plan
         .layers
         .iter()
-        .filter(|layer| layer.track < span.to_track)
-        .cloned()
+        .enumerate()
+        .filter(|&(index, layer)| layer.track <= span.to_track && Some(index) != incoming)
+        .map(|(_, layer)| layer.clone())
         .collect();
     let to = plan
         .layers
         .iter()
-        .filter(|layer| layer.track <= span.to_track)
-        .cloned()
-        .map(|mut layer| {
-            if layer.track == span.to_track {
+        .enumerate()
+        .filter(|&(_, layer)| layer.track <= span.to_track)
+        .map(|(index, layer)| {
+            let mut layer = layer.clone();
+            if Some(index) == incoming {
                 layer.opacity = 1.0;
             }
             layer
@@ -2435,8 +2474,10 @@ mod tests {
 
         let (width, height) = (64_u32, 36_u32);
         let solid = |name: &str, colour: [u8; 3]| -> Option<String> {
-            let path = std::env::temp_dir()
-                .join(format!("chillstudio-preview-{name}-{}.mp4", std::process::id()));
+            let path = std::env::temp_dir().join(format!(
+                "chillstudio-preview-{name}-{}.mp4",
+                std::process::id()
+            ));
             let mut encoder = Encoder::create(
                 &path,
                 width,
@@ -3341,7 +3382,10 @@ mod tests {
         resolve_transitions(&mut clips, FrameRate::THIRTY);
         // The fade is the plan's, drawn over the treated picture; the
         // clip's effects are as they were.
-        assert_eq!(clips[1].effects, vec![AppliedFilter::new("chillstudio.mono")]);
+        assert_eq!(
+            clips[1].effects,
+            vec![AppliedFilter::new("chillstudio.mono")]
+        );
         assert_eq!(clips[1].transition_shapes.len(), 1);
     }
 
@@ -3359,7 +3403,10 @@ mod tests {
         clips[1].effects = vec![AppliedFilter::new("chillstudio.mono")];
         let planned = resolve::planned_geometry(&clips[0]).expect("planned");
         assert!(planned.flip_h && !planned.flip_v);
-        assert_eq!(planned.crop, chillstudio_render::Crop::of([0.25, 0.0, 0.0, 0.5]));
+        assert_eq!(
+            planned.crop,
+            chillstudio_render::Crop::of([0.25, 0.0, 0.0, 0.5])
+        );
         let planned = resolve::planned_geometry(&clips[1]).expect("planned, effects or not");
         assert!(planned.flip_v);
 
@@ -3401,5 +3448,39 @@ mod tests {
         resolve_transitions(&mut clips, FrameRate::THIRTY);
         assert_eq!(clips[1].start, 2.0);
         assert!(clips[1].transition_shapes.is_empty());
+    }
+
+    #[test]
+    fn a_chain_of_transitions_stays_on_its_own_track() {
+        let mut clips = vec![
+            clip("video", 0, 0.0, 4.0, 0.0),
+            clip("video", 0, 4.0, 4.0, 2.0),
+            clip("video", 0, 8.0, 4.0, 2.0),
+            clip("image", 1, 0.0, 12.0, 0.0),
+        ];
+        for item in &mut clips[0..3] {
+            item.media_duration = Some(10.0);
+        }
+        clips[1].transition = spec("cross-fade", 1.0);
+        clips[2].transition = spec("cross-fade", 1.0);
+        let plan = preview_plan(&clips, 64, 64, 30, 1, ColorSpace::Sdr);
+        resolve_transitions(&mut clips, FrameRate::THIRTY);
+
+        assert_eq!(clips[0].track, 0);
+        assert_eq!(clips[1].track, 1);
+        assert_eq!(
+            clips[2].track, 1,
+            "the third clip stays below the next track's lane"
+        );
+        assert_eq!(clips[3].track, 2);
+
+        // At 8.0 s, inside the second transition, both clips of the cut and
+        // the overlay on the track above are planned in order.
+        let at_second_cut = plan_frame(&plan.built.timeline, Rational::from_int(8));
+        assert_eq!(
+            at_second_cut.layers.len(),
+            3,
+            "outgoing, incoming and the overlay above all draw"
+        );
     }
 }

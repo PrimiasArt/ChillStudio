@@ -58,9 +58,9 @@ pub enum CaptionsMsg {
     Begin,
     Cancel,
     /// The transcriber's worker reporting the stage it is in.
-    Progress(JobStage),
+    Progress(u64, JobStage),
     /// The transcriber's worker is done: what was said, or why not.
-    Finished(Result<Vec<Segment>, String>),
+    Finished(u64, Result<Vec<Segment>, String>),
 }
 
 /// The clip a transcription is running over, as the finished segments
@@ -108,6 +108,9 @@ pub struct CaptionsPane {
     pub message: String,
     /// The clip under the running transcription.
     subject: Option<Subject>,
+    /// Generation counter for the active transcription run, so late
+    /// messages from a cancelled run are ignored.
+    run_id: u64,
     /// How long each model took this session, for the next run's bar.
     timings: Timings,
 }
@@ -159,12 +162,20 @@ impl CaptionsPane {
                 }
             }
             CaptionsMsg::Cancel => {
+                self.run_id = self.run_id.wrapping_add(1);
                 studio.host.transcriber.cancel();
                 self.running = false;
                 self.open = false;
             }
-            CaptionsMsg::Progress(stage) => self.pace.report(stage),
-            CaptionsMsg::Finished(result) => {
+            CaptionsMsg::Progress(run_id, stage) => {
+                if run_id == self.run_id && self.running {
+                    self.pace.report(stage);
+                }
+            }
+            CaptionsMsg::Finished(run_id, result) => {
+                if run_id != self.run_id || !self.running {
+                    return;
+                }
                 self.running = false;
                 let subject = self.subject.take();
                 if let (Ok(_), Some(subject)) = (&result, &subject) {
@@ -252,6 +263,7 @@ impl CaptionsPane {
             model,
             placement: 0,
             size: 1,
+            run_id: self.run_id,
             timings: std::mem::take(&mut self.timings),
             ..CaptionsPane::default()
         };
@@ -347,14 +359,8 @@ impl CaptionsPane {
                         return;
                     }
                 };
-                let spans = find_silent_spans(
-                    &samples,
-                    8_000,
-                    1,
-                    *threshold_db,
-                    *min_silence_secs,
-                    0.06,
-                );
+                let spans =
+                    find_silent_spans(&samples, 8_000, 1, *threshold_db, *min_silence_secs, 0.06);
                 remove_silence_commands(&clip.id, clip.start, clip.duration, clip.speed, &spans)
             }
             CopilotAction::BeatSync { sensitivity } => {
@@ -466,16 +472,20 @@ impl CaptionsPane {
         });
         self.running = true;
         self.message.clear();
+        self.run_id = self.run_id.wrapping_add(1);
+        let run_id = self.run_id;
         let epoch = crate::host::project_epoch();
         spawn_in_project(
             move || {
                 transcriber.transcribe(&dirs, &request, move |stage| {
                     on_ui_in_project(epoch, move |studio, _, _| {
-                        studio.handle(Msg::Captions(CaptionsMsg::Progress(stage)));
+                        studio.handle(Msg::Captions(CaptionsMsg::Progress(run_id, stage)));
                     });
                 })
             },
-            |studio, _, _, result| studio.handle(Msg::Captions(CaptionsMsg::Finished(result))),
+            move |studio, _, _, result| {
+                studio.handle(Msg::Captions(CaptionsMsg::Finished(run_id, result)))
+            },
         );
     }
 

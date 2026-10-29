@@ -38,14 +38,17 @@ impl Studio {
         if self.merge_job.is_some() {
             return None; // The same action cancels a running merge.
         }
-        if self.host.exporter.is_busy() {
-            return Some(t("studio.mergeExportBusy"));
-        }
         if self.selection.iter().any(|id| {
             self.clip(id)
                 .is_some_and(|clip| self.locked(&clip.track_id))
         }) {
             return Some(t("studio.mergeTrackLocked"));
+        }
+        if chillstudio_project::why_not_merge(self.timeline(), &self.selection).is_none() {
+            return None;
+        }
+        if self.host.exporter.is_busy() {
+            return Some(t("studio.mergeExportBusy"));
         }
         consolidation_clips(self.timeline(), &self.selection)
             .err()
@@ -76,6 +79,13 @@ impl Studio {
         self.flush_commit();
         if let Some(reason) = self.merge_blocked() {
             self.notify(&reason, true);
+            return;
+        }
+        if chillstudio_project::why_not_merge(self.timeline(), &self.selection).is_none() {
+            let clip_ids = self.selection.clone();
+            if let Some(created) = self.apply(Command::MergeClips { clip_ids }) {
+                self.selection = vec![created];
+            }
             return;
         }
         let Some(session) = self.session.as_ref() else {

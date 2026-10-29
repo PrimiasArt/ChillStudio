@@ -192,6 +192,7 @@ def check(wanted: dict[str, str], list_same: bool = False, strict: bool = False)
             failed = 1
         for key in missing:
             print(f"    missing: {key}  ({wanted[key]!r})")
+            failed = 1
         if list_same or strict:
             for key in same:
                 print(f"    english: {key}  ({wanted[key]!r})")

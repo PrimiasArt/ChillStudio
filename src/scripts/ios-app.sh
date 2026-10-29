@@ -89,6 +89,8 @@ cat > "$app/Info.plist" <<PLIST
     </dict>
   </dict>
   <key>CADisableMinimumFrameDurationOnPhone</key><true/>
+  <key>UIFileSharingEnabled</key><true/>
+  <key>LSSupportsOpeningDocumentsInPlace</key><true/>
   <key>LSApplicationCategoryType</key><string>public.app-category.video</string>
   <key>NSPhotoLibraryUsageDescription</key><string>ChillStudio imports the clips you pick.</string>
   <key>NSMicrophoneUsageDescription</key><string>ChillStudio records voice-over.</string>

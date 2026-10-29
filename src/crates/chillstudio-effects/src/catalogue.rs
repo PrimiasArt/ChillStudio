@@ -1045,7 +1045,10 @@ impl Catalogue {
             }
         }
         for replaced in &package.manifest.replaces {
-            let bare = replaced.id.strip_prefix("chillstudio.").unwrap_or(&replaced.id);
+            let bare = replaced
+                .id
+                .strip_prefix("chillstudio.")
+                .unwrap_or(&replaced.id);
             if let Some(&index) = self
                 .by_id
                 .get(&replaced.id)

@@ -100,7 +100,10 @@ pub fn system_facts() -> Vec<(String, String)> {
         ),
         (
             t("sysinfo.engine"),
-            format!("chillstudio-engine · FFmpeg {}", chillstudio_media::linked_version()),
+            format!(
+                "chillstudio-engine · FFmpeg {}",
+                chillstudio_media::linked_version()
+            ),
         ),
         (t("sysinfo.operatingSystem"), os_description()),
         (

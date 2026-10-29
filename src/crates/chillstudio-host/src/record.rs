@@ -351,7 +351,8 @@ mod tests {
 
     #[test]
     fn a_wav_says_its_own_size_once_finished() {
-        let path = std::env::temp_dir().join(format!("chillstudio-record-{}.wav", std::process::id()));
+        let path =
+            std::env::temp_dir().join(format!("chillstudio-record-{}.wav", std::process::id()));
         let mut writer = WavWriter::create(&path, 48_000).expect("creates");
         writer.write(&[1, -1, 2, -2]).expect("writes");
         writer.write(&[3]).expect("writes");

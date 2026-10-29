@@ -613,8 +613,10 @@ mod tests {
     use chillstudio_project::{Command, Editor};
 
     fn scratch(name: &str) -> AppDirs {
-        let dir =
-            std::env::temp_dir().join(format!("chillstudio-title-test-{name}-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!(
+            "chillstudio-title-test-{name}-{}",
+            std::process::id()
+        ));
         let _ = std::fs::remove_dir_all(&dir);
         AppDirs {
             config: dir.join("config"),

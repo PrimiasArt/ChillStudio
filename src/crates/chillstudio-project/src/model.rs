@@ -1914,7 +1914,9 @@ impl VideoSettings {
     /// size, and at a rate the frame arithmetic can count in.
     pub fn or(self, fallback: VideoSettings) -> VideoSettings {
         let settings = self.or_terms(fallback);
-        if chillstudio_core::time::FrameRate::checked(settings.rate_num, settings.rate_den).is_some() {
+        if chillstudio_core::time::FrameRate::checked(settings.rate_num, settings.rate_den)
+            .is_some()
+        {
             settings
         } else {
             VideoSettings {

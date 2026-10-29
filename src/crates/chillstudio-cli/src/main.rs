@@ -28,7 +28,11 @@ use chillstudio_render::{Compositor, WgpuCompositor, plan_frame};
 use clap::{Parser, Subcommand};
 
 #[derive(Parser)]
-#[command(name = "chillstudio-cli", version, about = "ChillStudio engine command line")]
+#[command(
+    name = "chillstudio-cli",
+    version,
+    about = "ChillStudio engine command line"
+)]
 struct Cli {
     #[command(subcommand)]
     command: Command,
@@ -226,7 +230,10 @@ fn serve(
         );
     }
     if let Some(address) = server.grpc_addr() {
-        println!("ChillStudio API {}: gRPC on {address}", chillstudio_api::API_VERSION);
+        println!(
+            "ChillStudio API {}: gRPC on {address}",
+            chillstudio_api::API_VERSION
+        );
     }
     println!(
         "ChillStudio API {}: token {}",

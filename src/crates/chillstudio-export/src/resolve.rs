@@ -215,11 +215,24 @@ pub(crate) fn build_timeline(
     let mut highlight: Option<ClipId> = None;
 
     let lanes = visible.iter().map(|clip| clip.track).max().unwrap_or(0) + 1;
-    let tracks: Vec<_> = (0..lanes)
-        .map(|index| timeline.add_track(Track::new(format!("T{index}"), TrackKind::Video)))
-        .collect();
+    let mut ordered: Vec<&ExportClip> = Vec::with_capacity(visible.len());
+    for lane in 0..lanes {
+        let mut on_lane: Vec<&ExportClip> = visible
+            .iter()
+            .copied()
+            .filter(|clip| clip.track == lane)
+            .collect();
+        on_lane.sort_by(|left, right| {
+            left.start
+                .total_cmp(&right.start)
+                .then_with(|| right.hold.cmp(&left.hold))
+        });
+        ordered.extend(on_lane);
+    }
+    let mut current_lane: Option<usize> = None;
+    let mut current_track: Option<(chillstudio_core::timeline::TrackId, Rational)> = None;
 
-    for clip in visible {
+    for clip in ordered {
         // Quantise to the frame grid on the way in. The UI works in f64
         // seconds; the engine works in exact rationals, and this is the seam
         // where a value stops being approximate.
@@ -272,7 +285,29 @@ pub(crate) fn build_timeline(
         // frame grid the overlap does, or the dissolve ends a frame early.
         engine_clip.video_fade_in = quantise(clip.video_fade_in, rate);
 
-        if let Some(id) = timeline.add_clip(tracks[clip.track], engine_clip) {
+        let end = start + duration;
+        let mut reuse = None;
+        if current_lane == Some(clip.track)
+            && let Some((id, last_end)) = current_track
+            && last_end <= start
+        {
+            reuse = Some(id);
+        }
+        let track_id = match reuse {
+            Some(id) => {
+                current_track = Some((id, end));
+                id
+            }
+            None => {
+                let name = format!("T{}", clip.track);
+                let id = timeline.add_track(Track::new(name, TrackKind::Video));
+                current_lane = Some(clip.track);
+                current_track = Some((id, end));
+                id
+            }
+        };
+
+        if let Some(id) = timeline.add_clip(track_id, engine_clip) {
             tracks_of.insert(id, clip.track);
             if clip.kind == ClipKind::Image {
                 stills.insert(id);

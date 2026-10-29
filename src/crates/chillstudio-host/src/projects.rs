@@ -217,9 +217,12 @@ pub fn read_document(path: &str) -> Result<Option<serde_json::Value>, String> {
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
         Err(error) => return Err(format!("could not read {}: {error}", manifest.display())),
     };
-    serde_json::from_slice(&bytes)
-        .map(Some)
-        .map_err(|error| format!("{} is not a ChillStudio project: {error}", manifest.display()))
+    serde_json::from_slice(&bytes).map(Some).map_err(|error| {
+        format!(
+            "{} is not a ChillStudio project: {error}",
+            manifest.display()
+        )
+    })
 }
 
 /// Reads an existing project's settings.
@@ -229,8 +232,12 @@ pub fn open(path: &str) -> Result<ProjectInfo, String> {
 
     let bytes = std::fs::read(&manifest)
         .map_err(|error| format!("could not read {}: {error}", manifest.display()))?;
-    let document: Manifest = serde_json::from_slice(&bytes)
-        .map_err(|error| format!("{} is not a ChillStudio project: {error}", manifest.display()))?;
+    let document: Manifest = serde_json::from_slice(&bytes).map_err(|error| {
+        format!(
+            "{} is not a ChillStudio project: {error}",
+            manifest.display()
+        )
+    })?;
 
     if document.video.rate_den == 0 {
         return Err(format!("{} has an invalid frame rate", manifest.display()));

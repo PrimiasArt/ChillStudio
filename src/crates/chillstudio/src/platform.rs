@@ -25,6 +25,8 @@ use slint::PlatformError;
 // The winit backend, and so these, exist everywhere but Android, which
 // draws through Slint's android-activity backend and has no winit at all.
 #[cfg(not(target_os = "android"))]
+use slint::ComponentHandle;
+#[cfg(not(target_os = "android"))]
 use slint::winit_030::winit::event::{ElementState, MouseButton, WindowEvent};
 #[cfg(not(target_os = "android"))]
 use slint::winit_030::winit::event_loop::ActiveEventLoop;
@@ -71,6 +73,10 @@ struct DropHandler {
     /// Whether the window has been held to its screen yet: once, at its
     /// first event.
     fitted: bool,
+    /// Whether the remembered interface scale needs to be applied to the
+    /// window's current monitor scale factor (at startup and after a monitor
+    /// DPI change).
+    rescale: bool,
     /// Where the pointer last was, in logical pixels of the window: winit
     /// says where it moved, and a press says only that it happened.
     cursor: Option<(f32, f32)>,
@@ -137,6 +143,7 @@ impl DropHandler {
             wayland: None,
             wayland_tried: false,
             fitted: false,
+            rescale: true,
             cursor: None,
             on_pressed_away: Box::new(on_pressed_away),
             edges: cfg!(not(any(
@@ -253,12 +260,29 @@ impl CustomApplicationHandler for DropHandler {
                     (self.on_pressed_away)();
                 }
             }
+            WindowEvent::ScaleFactorChanged { .. } => self.rescale = true,
             _ => {}
         }
         EventResult::Propagate
     }
 
     fn about_to_wait(&mut self, _event_loop: &ActiveEventLoop) -> EventResult {
+        if self.rescale {
+            self.rescale = false;
+            if std::env::var_os("SLINT_SCALE_FACTOR").is_none() {
+                crate::host::Shell::with(|shell, app| {
+                    let percent = shell
+                        .studio
+                        .borrow()
+                        .prefs
+                        .ui_scale
+                        .filter(|p| crate::prefs::UI_SCALES.contains(p));
+                    if percent.is_some() {
+                        apply_ui_scale(app.window(), percent);
+                    }
+                });
+            }
+        }
         if let Ok(mut arrived) = self.arrived.lock() {
             self.pending.append(&mut arrived);
         }
@@ -321,7 +345,8 @@ pub const MACOS: bool = cfg!(target_os = "macos");
 /// the way a simulator's does, and never on it.
 pub fn phone() -> bool {
     cfg!(any(target_os = "android", target_os = "ios"))
-        || std::env::var_os("CHILLSTUDIO_PHONE").is_some_and(|value| !value.is_empty() && value != "0")
+        || std::env::var_os("CHILLSTUDIO_PHONE")
+            .is_some_and(|value| !value.is_empty() && value != "0")
 }
 
 /// Chooses and installs the backend, and hands back the device the
@@ -510,6 +535,35 @@ pub fn minimize(window: &slint::Window) {
     }
     #[cfg(target_os = "android")]
     let _ = window;
+}
+
+/// Applies the chosen interface scale (`percent`, or `"System"` when `None`)
+/// to `window`, multiplying the display's own scale factor so a HiDPI
+/// display scales relative to its native DPI rather than `1.0`.
+pub fn apply_ui_scale(window: &slint::Window, percent: Option<u32>) {
+    // The platform's own scale, for "System" and as the base for any
+    // percentage override. On a phone the window is not winit's and there is
+    // no such thing to ask, so 1 is the answer, which is what the shell uses
+    // anyway.
+    #[cfg(not(target_os = "android"))]
+    let system = {
+        use slint::winit_030::WinitWindowAccessor;
+        window
+            .with_winit_window(|winit| winit.scale_factor())
+            .unwrap_or(1.0)
+    };
+    #[cfg(target_os = "android")]
+    let system = 1.0;
+    let factor = percent.map_or(system as f32, |percent| {
+        (system * crate::prefs::Preferences::scale_factor(percent)) as f32
+    });
+    let physical = window.size();
+    window.dispatch_event(slint::platform::WindowEvent::ScaleFactorChanged {
+        scale_factor: factor,
+    });
+    window.dispatch_event(slint::platform::WindowEvent::Resized {
+        size: physical.to_logical(factor),
+    });
 }
 
 /// Maximises a window that opened larger than its screen. The window asks

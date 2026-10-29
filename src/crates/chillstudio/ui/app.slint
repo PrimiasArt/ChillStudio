@@ -967,6 +967,9 @@ export component App inherits Window {
         y: 0;
         width: root.width;
         height: root.height;
+        inset-bottom: root.safe-area-insets.bottom;
+        inset-left: root.safe-area-insets.left;
+        inset-right: root.safe-area-insets.right;
         data: root.toast;
     }
 }

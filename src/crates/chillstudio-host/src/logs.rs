@@ -443,7 +443,10 @@ mod tests {
             .collect();
         assert_eq!(ours.len(), KEEP - 1, "{ours:?}");
         // The ones kept are the last ones written.
-        assert!(ours.iter().all(|name| name.as_str() >= "chillstudio-20260906"));
+        assert!(
+            ours.iter()
+                .all(|name| name.as_str() >= "chillstudio-20260906")
+        );
         let _ = std::fs::remove_dir_all(&folder);
     }
 
